@@ -80,16 +80,19 @@ class HawalAgent:
         return metrics
 
     def ensure_hawal_core_binary(self):
-        if os.path.exists(HAWAL_CORE_BIN) and os.access(HAWAL_CORE_BIN, os.X_OK):
+        if os.path.exists(HAWAL_CORE_BIN) and os.path.isfile(HAWAL_CORE_BIN) and os.access(HAWAL_CORE_BIN, os.X_OK):
             return True
-        print(f"[Agent] 📥 Downloading Hawal Core binary from {self.panel_url}/static/bin/hawal-core...")
+
+        if os.path.exists(HAWAL_CORE_BIN) and os.path.isdir(HAWAL_CORE_BIN):
+            shutil.rmtree(HAWAL_CORE_BIN)
+
+        print(f"[Agent] 📥 Installing Hawal Core binary...")
         try:
-            # First try local static if running on same server
             local_static_bin = "/opt/hawal-panel/app/static/bin/hawal-core"
-            if os.path.exists(local_static_bin):
+            if os.path.exists(local_static_bin) and os.path.isfile(local_static_bin):
                 shutil.copy(local_static_bin, HAWAL_CORE_BIN)
                 os.chmod(HAWAL_CORE_BIN, 0o755)
-                print("[Agent] ✅ Hawal Core binary copied from local panel static.")
+                print("[Agent] ✅ Hawal Core binary installed from local panel.")
                 return True
 
             url = f"{self.panel_url}/static/bin/hawal-core"
@@ -100,19 +103,18 @@ class HawalAgent:
             print("[Agent] ✅ Hawal Core binary downloaded and installed.")
             return True
         except Exception as e:
-            print(f"[Agent] ❌ Failed to download Hawal Core binary: {e}")
+            print(f"[Agent] ❌ Failed to install Hawal Core binary: {e}")
             return False
 
     def ensure_backhaul_binary(self):
         if os.path.exists(BACKHAUL_BIN):
             return True
-        print(f"[Agent] 📥 Fetching Backhaul binary...")
         try:
             if os.path.exists("/usr/local/bin/backhaul"):
                 shutil.copy("/usr/local/bin/backhaul", BACKHAUL_BIN)
                 os.chmod(BACKHAUL_BIN, 0o755)
                 return True
-        except Exception as e:
+        except:
             pass
         return True
 
@@ -158,7 +160,9 @@ class HawalAgent:
             active_ids.add(tun_id)
 
             if core_type == "hawal":
-                self.ensure_hawal_core_binary()
+                if not self.ensure_hawal_core_binary():
+                    continue
+
                 cfg_path = f"{CONFIG_DIR}/{tun_id}.json"
                 cfg_content = json.dumps(item["config"], indent=2)
                 
@@ -211,29 +215,32 @@ class HawalAgent:
             time.sleep(4)
 
 if __name__ == "__main__":
-    p_url = ""
-    p_token = ""
+    p_url = None
+    p_token = None
     p_role = "kharej"
     p_name = "Node"
 
-    if len(sys.argv) >= 3:
-        p_url = sys.argv[1]
-        p_token = sys.argv[2]
-        p_role = sys.argv[3] if len(sys.argv) > 3 else "kharej"
-        p_name = sys.argv[4] if len(sys.argv) > 4 else "Node"
-    elif os.path.exists(AGENT_JSON_PATH):
+    # 1. First priority: /etc/hawal/agent.json if present
+    if os.path.exists(AGENT_JSON_PATH):
         try:
             with open(AGENT_JSON_PATH, "r") as f:
                 cfg = json.load(f)
-            p_url = cfg.get("panel_url", "http://127.0.0.1:9090")
-            p_token = cfg.get("token", "")
+            p_url = cfg.get("panel_url")
+            p_token = cfg.get("token")
             p_role = cfg.get("role", "kharej")
             p_name = cfg.get("name", "Node")
         except Exception as e:
             print(f"Error reading {AGENT_JSON_PATH}: {e}")
 
+    # 2. Command line overrides
+    if len(sys.argv) >= 3 and sys.argv[1].startswith("http"):
+        p_url = sys.argv[1]
+        p_token = sys.argv[2]
+        if len(sys.argv) > 3: p_role = sys.argv[3]
+        if len(sys.argv) > 4: p_name = sys.argv[4]
+
     if not p_url or not p_token:
-        print(f"Usage: python3 agent.py <PANEL_URL> <TOKEN> [ROLE] [NAME] or provide {AGENT_JSON_PATH}")
+        print(f"❌ Could not find valid panel_url or token in {AGENT_JSON_PATH} or arguments.")
         sys.exit(1)
 
     agent = HawalAgent(p_url, p_token, p_role, p_name)
