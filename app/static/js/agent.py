@@ -19,6 +19,7 @@ BIN_DIR = f"{HAWAL_DIR}/bin"
 CONFIG_DIR = f"{HAWAL_DIR}/tunnels"
 HAWAL_CORE_BIN = f"{BIN_DIR}/hawal-core"
 BACKHAUL_BIN = f"{BIN_DIR}/backhaul"
+AGENT_JSON_PATH = "/etc/hawal/agent.json"
 
 class HawalAgent:
     def __init__(self, panel_url, token, role="kharej", node_name=""):
@@ -83,12 +84,20 @@ class HawalAgent:
             return True
         print(f"[Agent] 📥 Downloading Hawal Core binary from {self.panel_url}/static/bin/hawal-core...")
         try:
+            # First try local static if running on same server
+            local_static_bin = "/opt/hawal-panel/app/static/bin/hawal-core"
+            if os.path.exists(local_static_bin):
+                shutil.copy(local_static_bin, HAWAL_CORE_BIN)
+                os.chmod(HAWAL_CORE_BIN, 0o755)
+                print("[Agent] ✅ Hawal Core binary copied from local panel static.")
+                return True
+
             url = f"{self.panel_url}/static/bin/hawal-core"
             req = urllib.request.Request(url, headers={"Authorization": f"Bearer {self.token}"})
             with urllib.request.urlopen(req, timeout=15) as resp, open(HAWAL_CORE_BIN, "wb") as out:
                 shutil.copyfileobj(resp, out)
             os.chmod(HAWAL_CORE_BIN, 0o755)
-            print("[Agent] ✅ Hawal Core binary installed.")
+            print("[Agent] ✅ Hawal Core binary downloaded and installed.")
             return True
         except Exception as e:
             print(f"[Agent] ❌ Failed to download Hawal Core binary: {e}")
@@ -99,7 +108,6 @@ class HawalAgent:
             return True
         print(f"[Agent] 📥 Fetching Backhaul binary...")
         try:
-            # Fallback if present locally or download
             if os.path.exists("/usr/local/bin/backhaul"):
                 shutil.copy("/usr/local/bin/backhaul", BACKHAUL_BIN)
                 os.chmod(BACKHAUL_BIN, 0o755)
@@ -154,7 +162,6 @@ class HawalAgent:
                 cfg_path = f"{CONFIG_DIR}/{tun_id}.json"
                 cfg_content = json.dumps(item["config"], indent=2)
                 
-                # Check if changed
                 if self.running_configs.get(tun_id) != cfg_content or tun_id not in self.running_processes:
                     with open(cfg_path, "w") as f:
                         f.write(cfg_content)
@@ -197,21 +204,37 @@ class HawalAgent:
             self.running_configs.pop(tun_id, None)
 
     def run(self):
-        print(f"🚀 Hawal Agent started. Connecting to {self.panel_url}...")
+        print(f"🚀 Hawal Agent started ({self.node_name} - {self.role}). Syncing with {self.panel_url}...")
         while True:
             self.send_heartbeat()
             self.sync_tunnels()
-            time.sleep(5)
+            time.sleep(4)
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: python3 agent.py <PANEL_URL> <TOKEN> [ROLE] [NAME]")
-        sys.exit(1)
+    p_url = ""
+    p_token = ""
+    p_role = "kharej"
+    p_name = "Node"
 
-    p_url = sys.argv[1]
-    p_token = sys.argv[2]
-    p_role = sys.argv[3] if len(sys.argv) > 3 else "kharej"
-    p_name = sys.argv[4] if len(sys.argv) > 4 else "Node"
+    if len(sys.argv) >= 3:
+        p_url = sys.argv[1]
+        p_token = sys.argv[2]
+        p_role = sys.argv[3] if len(sys.argv) > 3 else "kharej"
+        p_name = sys.argv[4] if len(sys.argv) > 4 else "Node"
+    elif os.path.exists(AGENT_JSON_PATH):
+        try:
+            with open(AGENT_JSON_PATH, "r") as f:
+                cfg = json.load(f)
+            p_url = cfg.get("panel_url", "http://127.0.0.1:9090")
+            p_token = cfg.get("token", "")
+            p_role = cfg.get("role", "kharej")
+            p_name = cfg.get("name", "Node")
+        except Exception as e:
+            print(f"Error reading {AGENT_JSON_PATH}: {e}")
+
+    if not p_url or not p_token:
+        print(f"Usage: python3 agent.py <PANEL_URL> <TOKEN> [ROLE] [NAME] or provide {AGENT_JSON_PATH}")
+        sys.exit(1)
 
     agent = HawalAgent(p_url, p_token, p_role, p_name)
     agent.run()
