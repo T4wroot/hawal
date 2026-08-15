@@ -62,8 +62,9 @@ func main() {
 		log.Fatalf("Authentication token is required (-token or in config)")
 	}
 
+	signal.Ignore(syscall.SIGHUP)
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 
 	fmt.Println("⚡ ===============================================")
 	fmt.Println("🚀 Hawal Stealth Core (هه‌واڵ) v1.0.0")

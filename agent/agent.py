@@ -159,6 +159,9 @@ class HawalAgent:
             core_type = item.get("core_type", "hawal")
             active_ids.add(tun_id)
 
+            proc = self.running_processes.get(tun_id)
+            is_running = proc is not None and proc.poll() is None
+
             if core_type == "hawal":
                 if not self.ensure_hawal_core_binary():
                     continue
@@ -166,7 +169,7 @@ class HawalAgent:
                 cfg_path = f"{CONFIG_DIR}/{tun_id}.json"
                 cfg_content = json.dumps(item["config"], indent=2)
                 
-                if self.running_configs.get(tun_id) != cfg_content or tun_id not in self.running_processes:
+                if not is_running or self.running_configs.get(tun_id) != cfg_content:
                     with open(cfg_path, "w") as f:
                         f.write(cfg_content)
                     self.restart_tunnel_process(tun_id, [HAWAL_CORE_BIN, "-config", cfg_path], cfg_content)
@@ -175,7 +178,7 @@ class HawalAgent:
                 self.ensure_backhaul_binary()
                 cfg_path = f"{CONFIG_DIR}/{tun_id}.toml"
                 toml_content = item.get("toml", "")
-                if self.running_configs.get(tun_id) != toml_content or tun_id not in self.running_processes:
+                if not is_running or self.running_configs.get(tun_id) != toml_content:
                     with open(cfg_path, "w") as f:
                         f.write(toml_content)
                     self.restart_tunnel_process(tun_id, [BACKHAUL_BIN, "-c", cfg_path], toml_content)
