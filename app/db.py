@@ -39,6 +39,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS tunnels (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
+            core_type TEXT NOT NULL DEFAULT 'hawal', -- 'hawal' or 'backhaul'
             server_node_id TEXT NOT NULL,
             client_node_id TEXT NOT NULL,
             core_port INTEGER NOT NULL,
@@ -188,26 +189,29 @@ def get_tunnel(tunnel_id):
             d["ports"] = []
         return d
 
-def save_tunnel(tunnel_id, name, server_node_id, client_node_id, core_port, transport, ports, token, nodelay=1, snappy=1, mux_con=8, channel_size=2048):
+def save_tunnel(tunnel_id, name, server_node_id, client_node_id, core_port, transport, ports, token, status='running', nodelay=1, snappy=1, mux_con=8, keepalive=75, channel_size=2048, core_type='hawal'):
     now = time.time()
     ports_json = json.dumps(ports)
     with get_db() as conn:
         conn.execute("""
-        INSERT INTO tunnels (id, name, server_node_id, client_node_id, core_port, transport, ports_json, token, status, nodelay, snappy, mux_con, channel_size, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'stopped', ?, ?, ?, ?, ?)
+        INSERT INTO tunnels (id, name, core_type, server_node_id, client_node_id, core_port, transport, ports_json, token, status, nodelay, snappy, mux_con, keepalive, channel_size, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             name=excluded.name,
+            core_type=excluded.core_type,
             server_node_id=excluded.server_node_id,
             client_node_id=excluded.client_node_id,
             core_port=excluded.core_port,
             transport=excluded.transport,
             ports_json=excluded.ports_json,
             token=excluded.token,
+            status=excluded.status,
             nodelay=excluded.nodelay,
             snappy=excluded.snappy,
             mux_con=excluded.mux_con,
+            keepalive=excluded.keepalive,
             channel_size=excluded.channel_size
-        """, (tunnel_id, name, server_node_id, client_node_id, core_port, transport, ports_json, token, nodelay, snappy, mux_con, channel_size, now))
+        """, (tunnel_id, name, core_type, server_node_id, client_node_id, core_port, transport, ports_json, token, status, nodelay, snappy, mux_con, keepalive, channel_size, now))
         conn.commit()
 
 def set_tunnel_status(tunnel_id, status):

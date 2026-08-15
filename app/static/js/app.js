@@ -232,14 +232,22 @@ function renderTunnels() {
 
   tbody.innerHTML = STATE.tunnels.map(t => {
     const isRunning = t.status === 'running';
+    const coreType = t.core_type || 'hawal';
+    const coreBadge = coreType === 'hawal'
+      ? `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3);">⚡ Hawal Core</span>`
+      : `<span class="badge badge-tag">🚀 Backhaul</span>`;
+
     return `
       <tr>
-        <td><strong>${t.name}</strong></td>
+        <td>
+          <div style="font-weight: 700;">${t.name}</div>
+          <div style="margin-top: 4px;">${coreBadge}</div>
+        </td>
         <td>${t.server_node_name || 'نامشخص'}</td>
         <td>${t.client_node_name || 'نامشخص'}</td>
         <td style="font-family: monospace;">${t.core_port}</td>
         <td>
-          <span class="badge badge-tag">${t.transport.toUpperCase()}</span>
+          <span class="badge badge-tag">${t.transport ? t.transport.toUpperCase() : 'STEALTH'}</span>
         </td>
         <td>
           ${t.ports.map(p => `<span class="badge badge-tag" style="margin: 2px;">${p}</span>`).join('')}
@@ -448,6 +456,7 @@ async function deleteNode(id) {
 async function handleAddTunnel(e) {
   e.preventDefault();
   const name = document.getElementById('tunnel-name').value;
+  const core_type = document.getElementById('tunnel-core-type').value;
   const server_node_id = document.getElementById('tunnel-server-node').value;
   const client_node_id = document.getElementById('tunnel-client-node').value;
   const core_port = document.getElementById('tunnel-core-port').value;
@@ -463,7 +472,7 @@ async function handleAddTunnel(e) {
   const res = await fetch('/api/tunnels', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, server_node_id, client_node_id, core_port, transport, ports })
+    body: JSON.stringify({ name, core_type, server_node_id, client_node_id, core_port, transport, ports })
   }).then(r => r.json());
 
   if (res.error) {

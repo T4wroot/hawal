@@ -206,27 +206,24 @@ class HTTPServer:
 
         if method == "POST" and path == "/api/tunnels":
             data = json.loads(body.decode('utf-8'))
-            tunnel_id = data.get("id") or f"tun_{secrets.token_hex(4)}"
-            name = data.get("name", "Hawal Tunnel")
+            tunnel_id = f"tun_{secrets.token_hex(4)}"
+            name = data.get("name", "New Tunnel")
+            core_type = data.get("core_type", "hawal")
             server_node_id = data.get("server_node_id")
             client_node_id = data.get("client_node_id")
-            core_port = int(data.get("core_port", 3080))
+            core_port = int(data.get("core_port", 3090))
             transport = data.get("transport", "ws")
             ports = data.get("ports", ["443=127.0.0.1:443"])
-            token = data.get("token") or secrets.token_hex(8)
-            nodelay = int(data.get("nodelay", 1))
-            snappy = int(data.get("snappy", 1))
-            mux_con = int(data.get("mux_con", 8))
-            channel_size = int(data.get("channel_size", 2048))
-
-            # Validate duplicate port collision on server node
-            valid, msg = validate_tunnel_ports(core_port, server_node_id, current_tunnel_id=tunnel_id)
+            token = secrets.token_hex(8)
+            
+            # Port conflict check
+            valid, err = validate_port_conflicts(server_node_id, core_port, ports)
             if not valid:
-                self.send_json(writer, {"success": False, "error": msg}, status=400)
+                self.send_json(writer, {"error": err}, status=400)
                 return
 
-            save_tunnel(tunnel_id, name, server_node_id, client_node_id, core_port, transport, ports, token, nodelay, snappy, mux_con, channel_size)
-            self.send_json(writer, {"success": True, "tunnel_id": tunnel_id})
+            save_tunnel(tunnel_id, name, server_node_id, client_node_id, core_port, transport, ports, token, status='running', core_type=core_type)
+            self.send_json(writer, {"tunnel_id": tunnel_id, "token": token, "status": "running", "core_type": core_type})
             await broadcast_ws({"event": "tunnel_updated"})
             return
 
@@ -332,6 +329,62 @@ class HTTPServer:
 
             self.send_json(writer, {"status": "ok", "tunnels": assigned_configs})
             await broadcast_ws({"event": "node_heartbeat", "node_id": node["id"]})
+            return
+
+        if method == "GET" and path == "/api/agent/sync":
+            auth_header = headers.get("Authorization", "")
+            token = auth_header.replace("Bearer ", "").strip()
+            node = get_node_by_token(token)
+            if not node:
+                self.send_json(writer, {"error": "unauthorized"}, status=401)
+                return
+
+            tunnels = list_tunnels()
+            node_configs = []
+
+            for t in tunnels:
+                if t["status"] != "running":
+                    continue
+                
+                core_type = t.get("core_type", "hawal")
+
+                if t["server_node_id"] == node["id"]:
+                    if core_type == "hawal":
+                        from app.hawal_engine import generate_hawal_core_server_config
+                        node_configs.append({
+                            "tunnel_id": t["id"],
+                            "core_type": "hawal",
+                            "role": "server",
+                            "config": generate_hawal_core_server_config(t)
+                        })
+                    else:
+                        node_configs.append({
+                            "tunnel_id": t["id"],
+                            "core_type": "backhaul",
+                            "role": "server",
+                            "toml": generate_server_toml(t)
+                        })
+
+                elif t["client_node_id"] == node["id"]:
+                    server_node = get_node_by_id(t["server_node_id"])
+                    server_ip = server_node["ip"] if server_node else "127.0.0.1"
+                    if core_type == "hawal":
+                        from app.hawal_engine import generate_hawal_core_client_config
+                        node_configs.append({
+                            "tunnel_id": t["id"],
+                            "core_type": "hawal",
+                            "role": "client",
+                            "config": generate_hawal_core_client_config(t, server_ip)
+                        })
+                    else:
+                        node_configs.append({
+                            "tunnel_id": t["id"],
+                            "core_type": "backhaul",
+                            "role": "client",
+                            "toml": generate_client_toml(t, server_ip)
+                        })
+
+            self.send_json(writer, {"configs": node_configs})
             return
 
         # Not found fallback
