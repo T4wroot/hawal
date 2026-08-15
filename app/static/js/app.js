@@ -262,16 +262,42 @@ function renderTunnels() {
 }
 
 function renderPingSelects() {
+  const addTunnelModal = document.getElementById('modal-add-tunnel');
+  const isTunnelModalOpen = addTunnelModal && addTunnelModal.classList.contains('active');
+
   const select = document.getElementById('ping-target-select');
-  select.innerHTML = STATE.nodes.map(n => `
-    <option value="${n.ip}" data-id="${n.id}">${n.flag || '🌐'} ${n.name} (${n.ip} - ${n.country_name || n.role})</option>
-  `).join('');
+  if (select) {
+    const curPingVal = select.value;
+    select.innerHTML = STATE.nodes.map(n => `
+      <option value="${n.ip}" data-id="${n.id}">${n.flag || '🌐'} ${n.name} (${n.ip} - ${n.country_name || n.role})</option>
+    `).join('');
+    if (curPingVal && Array.from(select.options).some(o => o.value === curPingVal)) {
+      select.value = curPingVal;
+    }
+  }
+
+  // If user is currently filling the Add Tunnel modal, do not reset their choices
+  if (isTunnelModalOpen) {
+    return;
+  }
 
   const sSelect = document.getElementById('tunnel-server-node');
   const cSelect = document.getElementById('tunnel-client-node');
   if (sSelect && cSelect) {
-    sSelect.innerHTML = STATE.nodes.map(n => `<option value="${n.id}" ${n.role === 'iran' ? 'selected' : ''}>${n.flag || '🌐'} ${n.name} (${n.country_name || n.role})</option>`).join('');
-    cSelect.innerHTML = STATE.nodes.map(n => `<option value="${n.id}" ${n.role !== 'iran' ? 'selected' : ''}>${n.flag || '🌐'} ${n.name} (${n.country_name || n.role})</option>`).join('');
+    const iranNode = STATE.nodes.find(n => n.role === 'iran') || STATE.nodes[0];
+    const kharejNode = STATE.nodes.find(n => n.role !== 'iran') || STATE.nodes[1] || STATE.nodes[0];
+
+    sSelect.innerHTML = STATE.nodes.map(n => `
+      <option value="${n.id}" ${iranNode && n.id === iranNode.id ? 'selected' : ''}>
+        ${n.flag || '🌐'} ${n.name} (${n.country_name || n.role})
+      </option>
+    `).join('');
+
+    cSelect.innerHTML = STATE.nodes.map(n => `
+      <option value="${n.id}" ${kharejNode && n.id === kharejNode.id ? 'selected' : ''}>
+        ${n.flag || '🌐'} ${n.name} (${n.country_name || n.role})
+      </option>
+    `).join('');
   }
 }
 
@@ -338,9 +364,26 @@ function openAddNodeModal() {
 }
 
 function openAddTunnelModal() {
-  renderPingSelects();
-  renderPortChips();
   document.getElementById('modal-add-tunnel').classList.add('active');
+  const sSelect = document.getElementById('tunnel-server-node');
+  const cSelect = document.getElementById('tunnel-client-node');
+  if (sSelect && cSelect) {
+    const iranNode = STATE.nodes.find(n => n.role === 'iran') || STATE.nodes[0];
+    const kharejNode = STATE.nodes.find(n => n.role !== 'iran') || STATE.nodes[1] || STATE.nodes[0];
+
+    sSelect.innerHTML = STATE.nodes.map(n => `
+      <option value="${n.id}" ${iranNode && n.id === iranNode.id ? 'selected' : ''}>
+        ${n.flag || '🌐'} ${n.name} (${n.country_name || n.role})
+      </option>
+    `).join('');
+
+    cSelect.innerHTML = STATE.nodes.map(n => `
+      <option value="${n.id}" ${kharejNode && n.id === kharejNode.id ? 'selected' : ''}>
+        ${n.flag || '🌐'} ${n.name} (${n.country_name || n.role})
+      </option>
+    `).join('');
+  }
+  renderPortChips();
 }
 
 function closeModal(id) {
