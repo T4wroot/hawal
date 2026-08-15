@@ -371,8 +371,28 @@ function openAddNodeModal() {
   document.getElementById('modal-add-node').classList.add('active');
 }
 
+function handleCoreTypeChange() {
+  const coreType = document.getElementById('tunnel-core-type').value;
+  const transportSelect = document.getElementById('tunnel-transport');
+  if (!transportSelect) return;
+
+  if (coreType === 'hawal') {
+    transportSelect.innerHTML = `
+      <option value="stealth" selected>⚡ Stealth Multi-Stream (ضد فیلتر و نویز متغیر)</option>
+    `;
+  } else {
+    transportSelect.innerHTML = `
+      <option value="ws" selected>WebSocket (پیشنهادی بکهول)</option>
+      <option value="tcp">TCP (خام و پرسرعت)</option>
+      <option value="tcpmux">TCP Mux (مالتی‌پلکس)</option>
+      <option value="tls">TLS Encrypted</option>
+    `;
+  }
+}
+
 function openAddTunnelModal() {
   document.getElementById('modal-add-tunnel').classList.add('active');
+  handleCoreTypeChange();
   const sSelect = document.getElementById('tunnel-server-node');
   const cSelect = document.getElementById('tunnel-client-node');
   if (sSelect && cSelect) {

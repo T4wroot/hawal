@@ -356,7 +356,7 @@
         </div>
         <div class="form-group">
           <label>موتور و هسته تانل (Engine Core):</label>
-          <select id="tunnel-core-type" class="form-control">
+          <select id="tunnel-core-type" class="form-control" onchange="handleCoreTypeChange()">
             <option value="hawal" selected>⚡ هسته اختصاصی هه‌واڵ (Hawal Stealth Core - Go ضد فیلتر و فوق‌سریع)</option>
             <option value="backhaul">🚀 هسته بکهول (Backhaul Multiplex - استاندارد)</option>
           </select>
@@ -374,15 +374,12 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <div class="form-group">
             <label>پورت ترانسپورت (Core Port):</label>
-            <input type="number" id="tunnel-core-port" class="form-control" value="3080" required>
+            <input type="number" id="tunnel-core-port" class="form-control" value="3095" required>
           </div>
           <div class="form-group">
-            <label>پروتکل ترانسپورت (ضد تراتل):</label>
+            <label>پروتکل ترانسپورت (Transport Protocol):</label>
             <select id="tunnel-transport" class="form-control">
-              <option value="ws" selected>WebSocket (پیشنهادی - ضد تراتل)</option>
-              <option value="tcp">TCP (خام و پرسرعت)</option>
-              <option value="tcpmux">TCP Mux (مالتی‌پلکس)</option>
-              <option value="tls">TLS Encrypted</option>
+              <option value="stealth" selected>⚡ Stealth Multi-Stream (ضد فیلتر و نویز متغیر)</option>
             </select>
           </div>
         </div>

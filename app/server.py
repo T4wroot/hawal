@@ -212,12 +212,13 @@ class HTTPServer:
             server_node_id = data.get("server_node_id")
             client_node_id = data.get("client_node_id")
             core_port = int(data.get("core_port", 3090))
-            transport = data.get("transport", "ws")
+            transport = data.get("transport", "stealth" if core_type == "hawal" else "ws")
             ports = data.get("ports", ["443=127.0.0.1:443"])
             token = secrets.token_hex(8)
             
             # Port conflict check
-            valid, err = validate_port_conflicts(server_node_id, core_port, ports)
+            from app.backhaul import validate_tunnel_ports
+            valid, err = validate_tunnel_ports(core_port, server_node_id)
             if not valid:
                 self.send_json(writer, {"error": err}, status=400)
                 return
