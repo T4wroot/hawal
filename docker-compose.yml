@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  hawal-panel:
+    build: .
+    container_name: hawal-panel
+    restart: always
+    network_mode: host
+    volumes:
+      - hawal-data:/root/.hawal
+    environment:
+      - PORT=9090
+
+volumes:
+  hawal-data:

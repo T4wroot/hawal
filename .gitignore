@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+*.db
+*.secret
+*.log
+.hawal/
+.nexustunnel/
+/tmp/
+.DS_Store
