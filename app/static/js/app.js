@@ -12,6 +12,30 @@ let STATE = {
   ws: null
 };
 
+// Toast Notification System
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  const icons = {
+    success: '✅',
+    error: '❌',
+    info: 'ℹ️'
+  };
+
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${message}</span>`;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(15px)';
+    toast.style.transition = 'all 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initWebSocket();
   fetchData();
@@ -89,7 +113,7 @@ function switchTab(tabId) {
   const titles = {
     dashboard: 'داشبورد و وضعیت کلی هه‌واڵ',
     nodes: 'مدیریت سرورها و نودهای هه‌واڵ',
-    tunnels: 'مدیریت تانل‌های Backhaul هوشمند',
+    tunnels: 'مدیریت تانل‌های پیشرفته هه‌واڵ',
     ping: 'سنجش زنده کیفیت ارتباط و پینگ سرورها',
     settings: 'تنظیمات متغیرها و پیکربندی پنل'
   };
@@ -123,22 +147,22 @@ function renderDashboard() {
   }
 
   grid.innerHTML = STATE.nodes.map(n => `
-    <div class="stat-card" style="display: flex; flex-direction: column; align-items: flex-start; gap: 12px;">
+    <div class="stat-card" style="display: flex; flex-direction: column; align-items: flex-start; gap: 14px;">
       <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <span class="status-dot ${n.status}"></span>
           <strong style="font-size: 15px;">${n.flag || '🌐'} ${n.name}</strong>
         </div>
-        <span class="badge ${n.role === 'iran' ? 'badge-role-iran' : 'badge-role-kharej'}">
+        <span class="badge ${n.role === 'iran' ? 'badge-online' : 'badge-tag'}">
           ${n.country_name || (n.role === 'iran' ? 'ایران' : 'خارج')}
         </span>
       </div>
-      <div style="font-size: 13px; color: var(--text-muted); font-family: monospace; direction: ltr;">
+      <div style="font-size: 13px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; direction: ltr;">
         ${n.ip}
       </div>
-      <div style="display: flex; justify-content: space-between; width: 100%; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 8px;">
-        <span>CPU: ${n.cpu_percent}%</span>
-        <span>RAM: ${n.ram_used_mb}/${n.ram_total_mb} MB</span>
+      <div style="display: flex; justify-content: space-between; width: 100%; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 10px;">
+        <span>CPU: <strong style="color:#fff;">${n.cpu_percent}%</strong></span>
+        <span>RAM: <strong style="color:#fff;">${n.ram_used_mb}/${n.ram_total_mb} MB</strong></span>
       </div>
     </div>
   `).join('');
@@ -148,7 +172,7 @@ function renderTopology() {
   const container = document.getElementById('topology-container');
   if (STATE.nodes.length < 2) {
     container.innerHTML = `
-      <div style="text-align: center; width: 100%; color: var(--text-muted); font-size: 13px; padding: 12px;">
+      <div style="text-align: center; width: 100%; color: var(--text-muted); font-size: 13px; padding: 16px;">
         برای نمایش توپولوژی زنده، حداقل ۲ نود (یک نود مبدا ایران و یک نود خارج) اضافه کنید.
       </div>`;
     return;
@@ -158,29 +182,30 @@ function renderTopology() {
   const kharejNode = STATE.nodes.find(n => n.role !== 'iran' && n.id !== iranNode.id) || STATE.nodes[1];
   const latency = STATE.pings.length > 0 ? `${STATE.pings[0].latency_avg_ms} ms` : '~96 ms';
   const activeTun = STATE.tunnels.find(t => t.status === 'running');
-  const transport = activeTun ? activeTun.transport.toUpperCase() : 'WS';
-  const corePort = activeTun ? activeTun.core_port : '3080';
+  const coreType = activeTun ? (activeTun.core_type || 'hawal') : 'hawal';
+  const coreLabel = coreType === 'hawal' ? '⚡ Hawal Stealth Core (Go)' : '🚀 Backhaul WS';
+  const corePort = activeTun ? activeTun.core_port : '3095';
 
   container.innerHTML = `
     <div class="topology-node">
-      <span style="font-size: 24px;">${iranNode.flag || '🇮🇷'}</span>
+      <span style="font-size: 28px;">${iranNode.flag || '🇮🇷'}</span>
       <div>
-        <div style="font-weight: 700; font-size: 14px;">${iranNode.name}</div>
-        <div style="font-size: 12px; color: var(--text-muted); font-family: monospace; direction: ltr;">${iranNode.ip}</div>
+        <div style="font-weight: 800; font-size: 15px;">${iranNode.name}</div>
+        <div style="font-size: 12px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; direction: ltr;">${iranNode.ip}</div>
       </div>
     </div>
 
     <div class="topology-line">
-      <span class="topology-badge">⚡ Backhaul ${transport} : ${corePort} (${latency})</span>
+      <span class="topology-badge">${coreLabel} : ${corePort} (${latency})</span>
       <div class="topology-track"></div>
-      <span style="font-size: 11px; color: var(--text-muted);">ارتباط ایمن و مالتی‌پلکس هه‌واڵ</span>
+      <span style="font-size: 11px; color: var(--text-muted);">پنهان‌سازی فریم‌ها و انتقال ضد فیلتر</span>
     </div>
 
     <div class="topology-node">
-      <span style="font-size: 24px;">${kharejNode.flag || '🌐'}</span>
+      <span style="font-size: 28px;">${kharejNode.flag || '🌐'}</span>
       <div>
-        <div style="font-weight: 700; font-size: 14px;">${kharejNode.name}</div>
-        <div style="font-size: 12px; color: var(--text-muted); font-family: monospace; direction: ltr;">${kharejNode.ip}</div>
+        <div style="font-weight: 800; font-size: 15px;">${kharejNode.name}</div>
+        <div style="font-size: 12px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; direction: ltr;">${kharejNode.ip}</div>
       </div>
     </div>
   `;
@@ -189,19 +214,19 @@ function renderTopology() {
 function renderNodes() {
   const tbody = document.getElementById('nodes-table-body');
   if (STATE.nodes.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 24px;">هیچ نودی یافت نشد.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 28px;">هیچ نودی یافت نشد.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = STATE.nodes.map(n => `
     <tr>
-      <td><strong>${n.flag || '🌐'} ${n.name}</strong></td>
+      <td><strong style="font-size: 15px;">${n.flag || '🌐'} ${n.name}</strong></td>
       <td>
-        <span class="badge ${n.role === 'iran' ? 'badge-role-iran' : 'badge-role-kharej'}">
+        <span class="badge ${n.role === 'iran' ? 'badge-online' : 'badge-tag'}">
           ${n.flag || '🌐'} ${n.country_name || (n.role === 'iran' ? 'ایران' : 'خارج')}
         </span>
       </td>
-      <td style="font-family: monospace; direction: ltr;">${n.ip}</td>
+      <td style="font-family: 'JetBrains Mono', monospace; direction: ltr;">${n.ip}</td>
       <td>
         <span class="badge ${n.status === 'online' ? 'badge-online' : 'badge-offline'}">
           <span class="status-dot ${n.status}"></span>
@@ -209,7 +234,7 @@ function renderNodes() {
         </span>
       </td>
       <td style="font-size: 12px;">
-        CPU: ${n.cpu_percent}% | RAM: ${n.ram_used_mb}MB
+        CPU: <strong>${n.cpu_percent}%</strong> | RAM: <strong>${n.ram_used_mb}MB</strong>
       </td>
       <td>
         <button class="btn btn-secondary btn-sm" onclick="showInstallCmd('${n.token}', '${n.role}', '${n.name}')">
@@ -226,7 +251,7 @@ function renderNodes() {
 function renderTunnels() {
   const tbody = document.getElementById('tunnels-table-body');
   if (STATE.tunnels.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">هیچ تانلی تعریف نشده است.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 28px;">هیچ تانلی تعریف نشده است.</td></tr>`;
     return;
   }
 
@@ -234,18 +259,18 @@ function renderTunnels() {
     const isRunning = t.status === 'running';
     const coreType = t.core_type || 'hawal';
     const coreBadge = coreType === 'hawal'
-      ? `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3);">⚡ Hawal Core</span>`
+      ? `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.35);">⚡ Hawal Stealth Core</span>`
       : `<span class="badge badge-tag">🚀 Backhaul</span>`;
 
     return `
       <tr>
         <td>
-          <div style="font-weight: 700;">${t.name}</div>
+          <div style="font-weight: 800; font-size: 15px;">${t.name}</div>
           <div style="margin-top: 4px;">${coreBadge}</div>
         </td>
         <td>${t.server_node_name || 'نامشخص'}</td>
         <td>${t.client_node_name || 'نامشخص'}</td>
-        <td style="font-family: monospace;">${t.core_port}</td>
+        <td style="font-family: 'JetBrains Mono', monospace; font-weight:700;">${t.core_port}</td>
         <td>
           <span class="badge badge-tag">${t.transport ? t.transport.toUpperCase() : 'STEALTH'}</span>
         </td>
@@ -284,7 +309,6 @@ function renderPingSelects() {
     }
   }
 
-  // If user is currently filling the Add Tunnel modal, do not reset their choices
   if (isTunnelModalOpen) {
     return;
   }
@@ -312,7 +336,7 @@ function renderPingSelects() {
 function renderPingHistory() {
   const tbody = document.getElementById('ping-history-body');
   if (STATE.pings.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 16px;">هنوز تستی ثبت نشده است.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">هنوز تستی ثبت نشده است.</td></tr>`;
     return;
   }
 
@@ -321,7 +345,7 @@ function renderPingHistory() {
       <td style="font-size: 12px; color: var(--text-muted);">${new Date(p.created_at * 1000).toLocaleTimeString('fa-IR')}</td>
       <td>${p.source_name || 'کنترل پنل'}</td>
       <td>${p.target_name || p.target_node_id}</td>
-      <td><strong style="color: var(--accent-cyan);">${p.latency_avg_ms} ms</strong> (Min: ${p.latency_min_ms} / Max: ${p.latency_max_ms})</td>
+      <td><strong style="color: var(--accent-cyan); font-family: 'JetBrains Mono';">${p.latency_avg_ms} ms</strong></td>
       <td>
         <span class="badge ${p.packet_loss === 0 ? 'badge-online' : 'badge-offline'}">
           ${p.packet_loss}%
@@ -331,13 +355,40 @@ function renderPingHistory() {
   `).join('');
 }
 
+// Engine Card Switcher
+function selectEngine(type) {
+  const cardHawal = document.getElementById('card-engine-hawal');
+  const cardBackhaul = document.getElementById('card-engine-backhaul');
+  const coreTypeInput = document.getElementById('tunnel-core-type');
+  const transportSelect = document.getElementById('tunnel-transport');
+
+  if (type === 'hawal') {
+    cardHawal.classList.add('active');
+    cardBackhaul.classList.remove('active');
+    coreTypeInput.value = 'hawal';
+    transportSelect.innerHTML = `
+      <option value="stealth" selected>⚡ Stealth Multi-Stream (ضد فیلتر و نویز متغیر)</option>
+    `;
+  } else {
+    cardBackhaul.classList.add('active');
+    cardHawal.classList.remove('active');
+    coreTypeInput.value = 'backhaul';
+    transportSelect.innerHTML = `
+      <option value="ws" selected>WebSocket (پیشنهادی بکهول)</option>
+      <option value="tcp">TCP (خام و پرسرعت)</option>
+      <option value="tcpmux">TCP Mux (مالتی‌پلکس)</option>
+      <option value="tls">TLS Encrypted</option>
+    `;
+  }
+}
+
 // Interactive Port Tags
 function renderPortChips() {
   const container = document.getElementById('port-chip-list');
   if (!container) return;
 
   if (STATE.activePortTags.length === 0) {
-    container.innerHTML = `<span style="font-size: 12px; color: var(--text-muted);">هیچ پورتی افزوده نشده است. از لیست زیر یا فیلد بالا پورت اضافه کنید.</span>`;
+    container.innerHTML = `<span style="font-size: 12px; color: var(--text-muted);">هیچ پورتی افزوده نشده است. از دکمه‌های پرکاربرد زیر استفاده کنید.</span>`;
     return;
   }
 
@@ -352,12 +403,13 @@ function renderPortChips() {
 function addPortChip(port) {
   const p = parseInt(port);
   if (isNaN(p) || p < 1 || p > 65535) {
-    alert('لطفاً یک شماره پورت معتبر بین ۱ تا ۶۵۵۳۵ وارد کنید.');
+    showToast('لطفاً یک شماره پورت معتبر بین ۱ تا ۶۵۵۳۵ وارد کنید.', 'error');
     return;
   }
   if (!STATE.activePortTags.includes(p)) {
     STATE.activePortTags.push(p);
     renderPortChips();
+    showToast(`پورت ${p} با موفقیت اضافه شد.`, 'info');
   }
 }
 
@@ -371,28 +423,9 @@ function openAddNodeModal() {
   document.getElementById('modal-add-node').classList.add('active');
 }
 
-function handleCoreTypeChange() {
-  const coreType = document.getElementById('tunnel-core-type').value;
-  const transportSelect = document.getElementById('tunnel-transport');
-  if (!transportSelect) return;
-
-  if (coreType === 'hawal') {
-    transportSelect.innerHTML = `
-      <option value="stealth" selected>⚡ Stealth Multi-Stream (ضد فیلتر و نویز متغیر)</option>
-    `;
-  } else {
-    transportSelect.innerHTML = `
-      <option value="ws" selected>WebSocket (پیشنهادی بکهول)</option>
-      <option value="tcp">TCP (خام و پرسرعت)</option>
-      <option value="tcpmux">TCP Mux (مالتی‌پلکس)</option>
-      <option value="tls">TLS Encrypted</option>
-    `;
-  }
-}
-
 function openAddTunnelModal() {
   document.getElementById('modal-add-tunnel').classList.add('active');
-  handleCoreTypeChange();
+  selectEngine('hawal');
   const sSelect = document.getElementById('tunnel-server-node');
   const cSelect = document.getElementById('tunnel-client-node');
   if (sSelect && cSelect) {
@@ -432,6 +465,7 @@ async function handleAddNode(e) {
 
   closeModal('modal-add-node');
   fetchData();
+  showToast(`نود ${name} با موفقیت ثبت شد.`, 'success');
   showInstallCmd(res.token, res.role, res.name);
 }
 
@@ -464,12 +498,13 @@ function updateInstallerCommand() {
 function copyInstallCmd() {
   const text = document.getElementById('install-command-text').innerText;
   navigator.clipboard.writeText(text);
-  alert('✅ دستور تک‌خطی در کلیپ‌بورد کپی شد!');
+  showToast('دستور تک‌خطی در کلیپ‌بورد کپی شد.', 'success');
 }
 
 async function deleteNode(id) {
   if (!confirm('آیا از حذف این نود مطمئن هستید؟')) return;
   await fetch(`/api/nodes/${id}`, { method: 'DELETE' });
+  showToast('نود حذف شد.', 'info');
   fetchData();
 }
 
@@ -483,7 +518,7 @@ async function handleAddTunnel(e) {
   const transport = document.getElementById('tunnel-transport').value;
 
   if (STATE.activePortTags.length === 0) {
-    alert('لطفاً حداقل یک پورت فوروارد اضافه کنید.');
+    showToast('لطفاً حداقل یک پورت فوروارد اضافه کنید.', 'error');
     return;
   }
 
@@ -496,11 +531,12 @@ async function handleAddTunnel(e) {
   }).then(r => r.json());
 
   if (res.error) {
-    alert('خطا: ' + res.error);
+    showToast(`خطا: ${res.error}`, 'error');
     return;
   }
 
   closeModal('modal-add-tunnel');
+  showToast(`تانل ${name} با موفقیت ایجاد و فعال شد! 🚀`, 'success');
   fetchData();
 }
 
@@ -510,12 +546,14 @@ async function toggleTunnel(id, status) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status })
   });
+  showToast(`وضعیت تانل به ${status === 'running' ? 'فعال' : 'متوقف'} تغییر یافت.`, 'info');
   fetchData();
 }
 
 async function deleteTunnel(id) {
   if (!confirm('آیا از حذف این تانل مطمئن هستید؟')) return;
   await fetch(`/api/tunnels/${id}`, { method: 'DELETE' });
+  showToast('تانل حذف شد.', 'info');
   fetchData();
 }
 
@@ -530,7 +568,7 @@ async function showDockerCompose(tunnelId) {
 function copyDockerCompose() {
   const text = document.getElementById('docker-compose-text').innerText;
   navigator.clipboard.writeText(text);
-  alert('✅ محتوای docker-compose.yml کپی شد!');
+  showToast('محتوای docker-compose.yml کپی شد.', 'success');
 }
 
 async function handleSaveSettings(e) {
@@ -547,7 +585,7 @@ async function handleSaveSettings(e) {
   }).then(r => r.json());
 
   if (res.success) {
-    alert('✅ تنظیمات با موفقیت ذخیره شدند.');
+    showToast('تنظیمات با موفقیت ذخیره شدند.', 'success');
   }
 }
 
@@ -558,7 +596,7 @@ async function triggerPingTest() {
   const target_node_id = selectedOpt ? selectedOpt.getAttribute('data-id') : 'target';
 
   document.getElementById('ping-result-container').style.display = 'block';
-  document.getElementById('ping-res-avg').innerText = 'در حال تست...';
+  document.getElementById('ping-res-avg').innerText = '...';
 
   const res = await fetch('/api/ping', {
     method: 'POST',
@@ -571,8 +609,10 @@ async function triggerPingTest() {
     document.getElementById('ping-res-min').innerText = `${res.min_ms} ms`;
     document.getElementById('ping-res-max').innerText = `${res.max_ms} ms`;
     document.getElementById('ping-res-loss').innerText = `${res.packet_loss}%`;
+    showToast(`تست پینگ به اتمام رسید: ${res.avg_ms}ms (پکت‌لاس: ${res.packet_loss}%)`, 'info');
     fetchData();
   } else {
-    document.getElementById('ping-res-avg').innerText = 'خطا در ارتباط';
+    document.getElementById('ping-res-avg').innerText = 'خطا';
+    showToast('خطا در برقراری تست پینگ', 'error');
   }
 }

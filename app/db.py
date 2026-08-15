@@ -72,6 +72,19 @@ def init_db():
         )
         """)
         
+        # Automatic migrations for existing databases
+        try:
+            cursor.execute("ALTER TABLE tunnels ADD COLUMN core_type TEXT NOT NULL DEFAULT 'hawal'")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE nodes ADD COLUMN country_code TEXT DEFAULT 'GLOBAL'")
+            cursor.execute("ALTER TABLE nodes ADD COLUMN country_name TEXT DEFAULT 'خارج'")
+            cursor.execute("ALTER TABLE nodes ADD COLUMN flag TEXT DEFAULT '🌐'")
+            cursor.execute("ALTER TABLE nodes ADD COLUMN city TEXT DEFAULT ''")
+        except:
+            pass
+        
         conn.commit()
 
 # --- Node Operations ---

@@ -16,7 +16,7 @@
         <div class="logo-icon">H</div>
         <div>
           <div class="logo-text">Hawal Tunnel</div>
-          <div style="font-size: 11px; color: var(--accent-cyan);">هه‌واڵ • نسخه ۱.۰</div>
+          <div style="font-size: 11px; color: var(--accent-cyan);">هه‌واڵ • نسخه ۱.۱ (Go Core)</div>
         </div>
       </div>
 
@@ -31,7 +31,7 @@
         </li>
         <li class="nav-item" onclick="switchTab('tunnels')">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-          تانل‌های هوشمند (Backhaul)
+          تانل‌های هوشمند (Hawal & Backhaul)
         </li>
         <li class="nav-item" onclick="switchTab('ping')">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
@@ -160,16 +160,16 @@
         <div id="tab-tunnels" class="tab-content" style="display: none;">
           <div class="section-card">
             <div class="section-header">
-              <div class="section-title">⚡ تانل‌های Backhaul هوشمند هه‌واڵ</div>
+              <div class="section-title">⚡ تانل‌های فعال هه‌واڵ و بکهول</div>
               <button class="btn btn-primary btn-sm" onclick="openAddTunnelModal()">+ ساخت تانل جدید</button>
             </div>
             <div class="table-responsive">
               <table>
                 <thead>
                   <tr>
-                    <th>نام تانل</th>
-                    <th>سرور مبدا</th>
-                    <th>سرور مقصد</th>
+                    <th>نام و هسته تانل</th>
+                    <th>سرور مبدا (ایران)</th>
+                    <th>سرور مقصد (خارج)</th>
                     <th>پورت ترانسپورت (Core)</th>
                     <th>پروتکل</th>
                     <th>پورت‌های فوروارد شده</th>
@@ -196,28 +196,28 @@
                 <label>انتخاب نود مقصد برای تست پینگ:</label>
                 <select id="ping-target-select" class="form-control"></select>
               </div>
-              <button class="btn btn-primary" onclick="triggerPingTest()" style="height: 42px; margin-bottom: 16px;">
+              <button class="btn btn-primary" onclick="triggerPingTest()" style="height: 44px; margin-bottom: 18px;">
                 🚀 شروع تست پینگ و پکت‌لاس
               </button>
             </div>
 
             <div id="ping-result-container" style="display: none; margin-top: 16px;">
-              <div class="ping-result-box">
-                <div class="ping-stat-item">
+              <div class="topology-box" style="justify-content: space-around;">
+                <div style="text-align: center;">
                   <div class="stat-label">میانگین تاخیر (Avg RTT)</div>
-                  <div id="ping-res-avg" class="ping-stat-num good">-</div>
+                  <div id="ping-res-avg" style="font-size: 26px; font-weight: 900; color: var(--accent-cyan); font-family: 'JetBrains Mono';">-</div>
                 </div>
-                <div class="ping-stat-item">
+                <div style="text-align: center;">
                   <div class="stat-label">کمترین تاخیر (Min)</div>
-                  <div id="ping-res-min" class="ping-stat-num">-</div>
+                  <div id="ping-res-min" style="font-size: 20px; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono';">-</div>
                 </div>
-                <div class="ping-stat-item">
+                <div style="text-align: center;">
                   <div class="stat-label">بیشترین تاخیر (Max)</div>
-                  <div id="ping-res-max" class="ping-stat-num">-</div>
+                  <div id="ping-res-max" style="font-size: 20px; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono';">-</div>
                 </div>
-                <div class="ping-stat-item">
+                <div style="text-align: center;">
                   <div class="stat-label">پکت‌لاس (Packet Loss)</div>
-                  <div id="ping-res-loss" class="ping-stat-num good">-</div>
+                  <div id="ping-res-loss" style="font-size: 26px; font-weight: 900; color: var(--accent-emerald); font-family: 'JetBrains Mono';">-</div>
                 </div>
               </div>
             </div>
@@ -293,7 +293,7 @@
       <form id="form-add-node" onsubmit="handleAddNode(event)">
         <div class="form-group">
           <label>نام نمایشی نود:</label>
-          <input type="text" id="node-name" class="form-control" placeholder="سرور جدید (مثلاً: Iran Hub یا Finland Core)" required>
+          <input type="text" id="node-name" class="form-control" placeholder="مثلاً: Iran Hub یا Germany Core" required>
         </div>
         <div class="form-group">
           <label>آدرس IP عمومی نود:</label>
@@ -303,11 +303,11 @@
         <div class="form-group">
           <label>نقش سرور در تانل:</label>
           <select id="node-role" class="form-control">
-            <option value="iran">🇮🇷 سرور ایران (مبدا یا نود لیسنر)</option>
+            <option value="iran">🇮🇷 سرور ایران (مبدا یا لیسنر ترافیک)</option>
             <option value="kharej" selected>🌐 سرور خارج (نود متصل‌شونده)</option>
           </select>
         </div>
-        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px;">
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-node')">انصراف</button>
           <button type="submit" class="btn btn-primary">ثبت و دریافت دستور تک‌خطی</button>
         </div>
@@ -342,38 +342,57 @@
     </div>
   </div>
 
-  <!-- MODAL: ADD TUNNEL (INTERACTIVE PORT TAGS) -->
+  <!-- MODAL: ADD TUNNEL (UPGRADED UI & ERGONOMIC CARDS) -->
   <div class="modal-overlay" id="modal-add-tunnel">
-    <div class="modal" style="max-width: 620px;">
+    <div class="modal" style="max-width: 660px;">
       <div class="modal-header">
-        <div class="modal-title">🚀 ایجاد تانل جدید Backhaul هه‌واڵ</div>
+        <div class="modal-title">🚀 ایجاد تانل جدید هه‌واڵ</div>
         <button class="modal-close" onclick="closeModal('modal-add-tunnel')">&times;</button>
       </div>
       <form id="form-add-tunnel" onsubmit="handleAddTunnel(event)">
+        
         <div class="form-group">
           <label>نام تانل:</label>
-          <input type="text" id="tunnel-name" class="form-control" placeholder="Iran-Europe Master Tunnel" required>
+          <input type="text" id="tunnel-name" class="form-control" placeholder="مثلاً: Iran-Germany Master Tunnel" required>
         </div>
+
+        <!-- Segmented Visual Engine Cards -->
         <div class="form-group">
-          <label>موتور و هسته تانل (Engine Core):</label>
-          <select id="tunnel-core-type" class="form-control" onchange="handleCoreTypeChange()">
-            <option value="hawal" selected>⚡ هسته اختصاصی هه‌واڵ (Hawal Stealth Core - Go ضد فیلتر و فوق‌سریع)</option>
-            <option value="backhaul">🚀 هسته بکهول (Backhaul Multiplex - استاندارد)</option>
-          </select>
+          <label>انتخاب موتور و هسته تانل (Tunnel Engine):</label>
+          <div class="engine-selector-grid">
+            <div class="engine-card active" id="card-engine-hawal" onclick="selectEngine('hawal')">
+              <div class="engine-card-header">
+                <span class="engine-title" style="color: var(--accent-emerald);">⚡ Hawal Stealth Core</span>
+                <span style="font-size: 11px; background: rgba(16,185,129,0.2); color:#34d399; padding:2px 6px; border-radius:4px;">پیشنهادی</span>
+              </div>
+              <span class="engine-desc">نوشته‌شده با Go • پدینگ نویز ضد فیلترینگ • بدون افت آپلود • تاخیر ۰.۲ms</span>
+            </div>
+
+            <div class="engine-card" id="card-engine-backhaul" onclick="selectEngine('backhaul')">
+              <div class="engine-card-header">
+                <span class="engine-title" style="color: #60a5fa;">🚀 Backhaul Core</span>
+                <span style="font-size: 11px; background: rgba(59,130,246,0.2); color:#93c5fd; padding:2px 6px; border-radius:4px;">استاندارد</span>
+              </div>
+              <span class="engine-desc">موتور محبوب بکهول • پشتیبانی از WebSocket / TCP / TLS</span>
+            </div>
+          </div>
+          <input type="hidden" id="tunnel-core-type" value="hawal">
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
           <div class="form-group">
-            <label>سرور مبدا (Server Node):</label>
+            <label>سرور مبدا (ایران - لیسنر):</label>
             <select id="tunnel-server-node" class="form-control" required></select>
           </div>
           <div class="form-group">
-            <label>سرور مقصد (Client Node):</label>
+            <label>سرور مقصد (خارج - سرور اصلی):</label>
             <select id="tunnel-client-node" class="form-control" required></select>
           </div>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
           <div class="form-group">
-            <label>پورت ترانسپورت (Core Port):</label>
+            <label>پورت ترانسپورت هسته (Core Port):</label>
             <input type="number" id="tunnel-core-port" class="form-control" value="3095" required>
           </div>
           <div class="form-group">
@@ -388,7 +407,7 @@
         <div class="form-group">
           <label>پورت‌های فوروارد شده (Forwarded Ports):</label>
           <div class="port-chip-container" id="port-chip-list">
-            <!-- Chips will be inserted here dynamically -->
+            <!-- Chips inserted dynamically -->
           </div>
 
           <div style="display: flex; gap: 8px; margin-top: 8px;">
@@ -400,7 +419,7 @@
 
           <div class="preset-chip-list">
             <span style="font-size: 11px; color: var(--text-muted); align-self: center;">پورت‌های پرکاربرد:</span>
-            <span class="preset-chip" onclick="addPortChip(443)">+ 443 (HTTPS/Reality)</span>
+            <span class="preset-chip" onclick="addPortChip(443)">+ 443 (Reality)</span>
             <span class="preset-chip" onclick="addPortChip(2083)">+ 2083 (MTProto)</span>
             <span class="preset-chip" onclick="addPortChip(8080)">+ 8080 (V2Ray/WS)</span>
             <span class="preset-chip" onclick="addPortChip(8443)">+ 8443 (Xray Core)</span>
@@ -416,7 +435,7 @@
     </div>
   </div>
 
-  <!-- MODAL: DOCKER COMPOSE VIEWER FOR TUNNEL -->
+  <!-- MODAL: DOCKER COMPOSE VIEWER -->
   <div class="modal-overlay" id="modal-tunnel-docker">
     <div class="modal" style="max-width: 650px;">
       <div class="modal-header">
@@ -435,6 +454,9 @@
       </div>
     </div>
   </div>
+
+  <!-- FLOATING TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-container"></div>
 
   <script src="/static/js/app.js"></script>
 </body>
