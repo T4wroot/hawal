@@ -269,9 +269,10 @@ function renderPingSelects() {
 
   const sSelect = document.getElementById('tunnel-server-node');
   const cSelect = document.getElementById('tunnel-client-node');
-  const options = STATE.nodes.map(n => `<option value="${n.id}">${n.flag || '🌐'} ${n.name} (${n.country_name || n.role})</option>`).join('');
-  if (sSelect) sSelect.innerHTML = options;
-  if (cSelect) cSelect.innerHTML = options;
+  if (sSelect && cSelect) {
+    sSelect.innerHTML = STATE.nodes.map(n => `<option value="${n.id}" ${n.role === 'iran' ? 'selected' : ''}>${n.flag || '🌐'} ${n.name} (${n.country_name || n.role})</option>`).join('');
+    cSelect.innerHTML = STATE.nodes.map(n => `<option value="${n.id}" ${n.role !== 'iran' ? 'selected' : ''}>${n.flag || '🌐'} ${n.name} (${n.country_name || n.role})</option>`).join('');
+  }
 }
 
 function renderPingHistory() {
