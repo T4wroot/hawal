@@ -298,7 +298,8 @@ class HTTPServer:
 
         # 6. REST API: Agent Heartbeat & Remote Node Synchronization
         if method == "POST" and path == "/api/agent/heartbeat":
-            auth_token = headers.get("x-node-token")
+            auth_header = headers.get("authorization", "") or headers.get("Authorization", "")
+            auth_token = auth_header.replace("Bearer ", "").strip() or headers.get("x-node-token")
             node = get_node_by_token(auth_token)
             if not node:
                 self.send_json(writer, {"error": "Unauthorized node token"}, status=401)
@@ -333,8 +334,8 @@ class HTTPServer:
             return
 
         if method == "GET" and path == "/api/agent/sync":
-            auth_header = headers.get("Authorization", "")
-            token = auth_header.replace("Bearer ", "").strip()
+            auth_header = headers.get("authorization", "") or headers.get("Authorization", "")
+            token = auth_header.replace("Bearer ", "").strip() or headers.get("x-node-token", "")
             node = get_node_by_token(token)
             if not node:
                 self.send_json(writer, {"error": "unauthorized"}, status=401)
@@ -367,7 +368,7 @@ class HTTPServer:
                         })
 
                 elif t["client_node_id"] == node["id"]:
-                    server_node = get_node_by_id(t["server_node_id"])
+                    server_node = get_node(t["server_node_id"])
                     server_ip = server_node["ip"] if server_node else "127.0.0.1"
                     if core_type == "hawal":
                         from app.hawal_engine import generate_hawal_core_client_config
