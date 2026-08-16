@@ -10,13 +10,15 @@
 <body>
   <div class="app-container">
     
-    <!-- Sidebar -->
+    <!-- Sidebar Navigation -->
     <aside class="sidebar">
       <div class="logo">
-        <div class="logo-icon">H</div>
+        <div class="logo-badge">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+        </div>
         <div>
-          <div class="logo-text">Hawal Tunnel</div>
-          <div style="font-size: 11px; color: var(--accent-cyan);">هه‌واڵ • نسخه ۱.۱ (Go Core)</div>
+          <div class="logo-text-title">Hawal Tunnel</div>
+          <div class="logo-text-sub">هه‌واڵ • نسخه ۱.۲ (Go Stealth Core)</div>
         </div>
       </div>
 
@@ -52,11 +54,12 @@
         <div class="page-title" id="page-title">داشبورد و وضعیت کلی هه‌واڵ</div>
         <div class="topbar-actions">
           <button class="btn btn-secondary btn-sm" onclick="fetchData()">
-            <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
             بروزرسانی زنده
           </button>
           <button class="btn btn-primary btn-sm" onclick="openAddNodeModal()">
-            + افزودن نود جدید
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            افزودن نود جدید
           </button>
         </div>
       </header>
@@ -68,28 +71,36 @@
         <div id="tab-dashboard" class="tab-content">
           <div class="grid-stats">
             <div class="stat-card">
-              <div class="stat-icon blue">🌐</div>
+              <div class="stat-icon-wrapper blue">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              </div>
               <div class="stat-info">
                 <span class="stat-label">تعداد کل نودها</span>
                 <span class="stat-value" id="stat-total-nodes">۰</span>
               </div>
             </div>
             <div class="stat-card">
-              <div class="stat-icon emerald">⚡</div>
+              <div class="stat-icon-wrapper emerald">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              </div>
               <div class="stat-info">
                 <span class="stat-label">نودهای آنلاین</span>
                 <span class="stat-value" id="stat-online-nodes">۰</span>
               </div>
             </div>
             <div class="stat-card">
-              <div class="stat-icon cyan">🚀</div>
+              <div class="stat-icon-wrapper cyan">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+              </div>
               <div class="stat-info">
                 <span class="stat-label">تانل‌های فعال هه‌واڵ</span>
                 <span class="stat-value" id="stat-active-tunnels">۰</span>
               </div>
             </div>
             <div class="stat-card">
-              <div class="stat-icon purple">📶</div>
+              <div class="stat-icon-wrapper purple">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+              </div>
               <div class="stat-info">
                 <span class="stat-label">میانگین تاخیر ایران-خارج</span>
                 <span class="stat-value" id="stat-avg-latency">-</span>
@@ -103,9 +114,13 @@
           <div class="section-card">
             <div class="section-header">
               <div class="section-title">
-                <span>⚡ توپولوژی و وضعیت زنده‌ی مسیر تانل</span>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                <span>توپولوژی و وضعیت زنده‌ی مسیر تانل</span>
               </div>
-              <button class="btn btn-secondary btn-sm" onclick="switchTab('ping')">تست کیفیت شبکه</button>
+              <button class="btn btn-secondary btn-sm" onclick="switchTab('ping')">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                تست کیفیت شبکه
+              </button>
             </div>
             <div class="topology-box" id="topology-container">
               <!-- Dynamic Topology Nodes -->
@@ -118,7 +133,8 @@
           <div class="section-card">
             <div class="section-header">
               <div class="section-title">
-                <span>📍 وضعیت کارت‌های سرورها</span>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"></path></svg>
+                <span>وضعیت کارت‌های سرورها</span>
               </div>
               <button class="btn btn-secondary btn-sm" onclick="switchTab('nodes')">مشاهده تمام نودها</button>
             </div>
@@ -132,8 +148,14 @@
         <div id="tab-nodes" class="tab-content" style="display: none;">
           <div class="section-card">
             <div class="section-header">
-              <div class="section-title">🖥️ لیست نودهای متصل به هه‌واڵ</div>
-              <button class="btn btn-primary btn-sm" onclick="openAddNodeModal()">+ تعریف نود جدید</button>
+              <div class="section-title">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                <span>لیست نودهای متصل به هه‌واڵ</span>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="openAddNodeModal()">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                تعریف نود جدید
+              </button>
             </div>
             <div class="table-responsive">
               <table>
@@ -160,8 +182,14 @@
         <div id="tab-tunnels" class="tab-content" style="display: none;">
           <div class="section-card">
             <div class="section-header">
-              <div class="section-title">⚡ تانل‌های فعال هه‌واڵ و بکهول</div>
-              <button class="btn btn-primary btn-sm" onclick="openAddTunnelModal()">+ ساخت تانل جدید</button>
+              <div class="section-title">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                <span>تانل‌های فعال هه‌واڵ و بکهول</span>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="openAddTunnelModal()">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                ساخت تانل جدید
+              </button>
             </div>
             <div class="table-responsive">
               <table>
@@ -189,7 +217,10 @@
         <div id="tab-ping" class="tab-content" style="display: none;">
           <div class="section-card">
             <div class="section-header">
-              <div class="section-title">📊 تست کیفیت و پینگ بلادرنگ بین سرورها</div>
+              <div class="section-title">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                <span>تست کیفیت و پینگ بلادرنگ بین سرورها</span>
+              </div>
             </div>
             <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
               <div class="form-group" style="flex: 1; min-width: 220px;">
@@ -197,7 +228,8 @@
                 <select id="ping-target-select" class="form-control"></select>
               </div>
               <button class="btn btn-primary" onclick="triggerPingTest()" style="height: 44px; margin-bottom: 18px;">
-                🚀 شروع تست پینگ و پکت‌لاس
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                شروع تست پینگ و پکت‌لاس
               </button>
             </div>
 
@@ -246,7 +278,10 @@
         <div id="tab-settings" class="tab-content" style="display: none;">
           <div class="section-card">
             <div class="section-header">
-              <div class="section-title">⚙️ تنظیمات متغیرها و پیکربندی پنل هه‌واڵ</div>
+              <div class="section-title">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <span>تنظیمات متغیرها و پیکربندی پنل هه‌واڵ</span>
+              </div>
             </div>
             <form id="form-settings" onsubmit="handleSaveSettings(event)">
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
@@ -273,7 +308,10 @@
                 </div>
               </div>
               <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
-                <button type="submit" class="btn btn-primary">💾 ذخیره تغییرات تنظیمات</button>
+                <button type="submit" class="btn btn-primary">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                  ذخیره تغییرات تنظیمات
+                </button>
               </div>
             </form>
           </div>
@@ -287,7 +325,10 @@
   <div class="modal-overlay" id="modal-add-node">
     <div class="modal">
       <div class="modal-header">
-        <div class="modal-title">🖥️ افزودن نود جدید به هه‌واڵ</div>
+        <div class="modal-title">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+          افزودن نود جدید به هه‌واڵ
+        </div>
         <button class="modal-close" onclick="closeModal('modal-add-node')">&times;</button>
       </div>
       <form id="form-add-node" onsubmit="handleAddNode(event)">
@@ -319,7 +360,10 @@
   <div class="modal-overlay" id="modal-install-code">
     <div class="modal" style="max-width: 650px;">
       <div class="modal-header">
-        <div class="modal-title">⚡ دستور تک‌خطی اتصال نود به پنل</div>
+        <div class="modal-title">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+          دستور تک‌خطی اتصال نود به پنل
+        </div>
         <button class="modal-close" onclick="closeModal('modal-install-code')">&times;</button>
       </div>
       
@@ -346,7 +390,10 @@
   <div class="modal-overlay" id="modal-add-tunnel">
     <div class="modal" style="max-width: 660px;">
       <div class="modal-header">
-        <div class="modal-title">🚀 ایجاد تانل جدید هه‌واڵ</div>
+        <div class="modal-title">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+          ایجاد تانل جدید هه‌واڵ
+        </div>
         <button class="modal-close" onclick="closeModal('modal-add-tunnel')">&times;</button>
       </div>
       <form id="form-add-tunnel" onsubmit="handleAddTunnel(event)">
@@ -439,7 +486,10 @@
   <div class="modal-overlay" id="modal-tunnel-docker">
     <div class="modal" style="max-width: 650px;">
       <div class="modal-header">
-        <div class="modal-title">🐳 فایل Docker Compose برای این تانل</div>
+        <div class="modal-title">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+          فایل Docker Compose برای این تانل
+        </div>
         <button class="modal-close" onclick="closeModal('modal-tunnel-docker')">&times;</button>
       </div>
       <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">
