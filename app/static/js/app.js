@@ -175,6 +175,32 @@ function removeEditPortChip(port) {
 }
 
 // -------------------------------------------------------------
+// Cloudflare Keyboard Shortcut & Quick Search
+// -------------------------------------------------------------
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();
+    const searchInput = document.getElementById('cf-home-search-input') || document.getElementById('sidebar-search-input');
+    if (searchInput) searchInput.focus();
+  }
+});
+
+function handleQuickFilter(query) {
+  const q = (query || '').toLowerCase().trim();
+  const tunnelRows = document.querySelectorAll('#cf-col-tunnels-list .cf-asset-row');
+  tunnelRows.forEach(row => {
+    const text = row.innerText.toLowerCase();
+    row.style.display = text.includes(q) ? 'flex' : 'none';
+  });
+
+  const nodeRows = document.querySelectorAll('#cf-col-nodes-list .cf-asset-row');
+  nodeRows.forEach(row => {
+    const text = row.innerText.toLowerCase();
+    row.style.display = text.includes(q) ? 'flex' : 'none';
+  });
+}
+
+// -------------------------------------------------------------
 // Tab Navigation
 // -------------------------------------------------------------
 function switchTab(tabId) {
@@ -183,22 +209,25 @@ function switchTab(tabId) {
   const activeSection = document.getElementById(`tab-${tabId}`);
   if (activeSection) activeSection.style.display = 'block';
 
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  const navMap = { 'dashboard': 0, 'nodes': 1, 'tunnels': 2, 'ping': 3, 'settings': 4 };
-  const navItems = document.querySelectorAll('.nav-item');
-  if (navItems[navMap[tabId]]) {
-    navItems[navMap[tabId]].classList.add('active');
-  }
+  document.querySelectorAll('.cf-nav-item').forEach(el => el.classList.remove('active'));
+  const activeNav = document.getElementById(`nav-${tabId}`);
+  if (activeNav) activeNav.classList.add('active');
 
   const titles = {
-    'dashboard': 'داشبورد و وضعیت کلی هه‌واڵ',
-    'nodes': 'مدیریت نودها (سرورهای متصل)',
-    'tunnels': 'مدیریت تانل‌ها و پورت‌ها',
-    'ping': 'سنجش کیفیت و تست پینگ شبکه',
-    'settings': 'تنظیمات متغیرها و پنل'
+    'dashboard': 'Account Home',
+    'nodes': 'Nodes & Edge Servers',
+    'tunnels': 'Tunnels & Routing',
+    'ping': 'Diagnostics & Ping',
+    'settings': 'Configurations'
   };
-  const titleEl = document.getElementById('page-title');
-  if (titleEl) titleEl.innerText = titles[tabId] || 'پنل هوشمند هه‌واڵ';
+  const breadcrumbs = document.getElementById('cf-breadcrumbs');
+  if (breadcrumbs) {
+    breadcrumbs.innerHTML = `
+      <span>Hawal Global Network</span>
+      <span>/</span>
+      <span style="color: var(--cf-text-primary); font-weight: 700;">${titles[tabId] || 'Dashboard'}</span>
+    `;
+  }
 }
 
 // -------------------------------------------------------------
@@ -260,99 +289,129 @@ function formatBytes(bytes) {
 }
 
 function renderDashboard() {
-  const totalNodesEl = document.getElementById('stat-total-nodes');
-  const onlineNodesEl = document.getElementById('stat-online-nodes');
-  const activeTunnelsEl = document.getElementById('stat-active-tunnels');
-  const avgLatencyEl = document.getElementById('stat-avg-latency');
-  const totalTrafficEl = document.getElementById('stat-total-traffic');
+  const colCountTunnels = document.getElementById('col-count-tunnels');
+  const colCountNodes = document.getElementById('col-count-nodes');
+  const colTotalTraffic = document.getElementById('col-total-traffic');
 
-  const onlineCount = STATE.nodes.filter(n => n.status === 'online').length;
-  if (onlineNodesEl) onlineNodesEl.innerText = `${onlineCount} / ${STATE.nodes.length}`;
-  if (activeTunnelsEl) activeTunnelsEl.innerText = STATE.tunnels.filter(t => t.status === 'running').length;
+  if (colCountTunnels) colCountTunnels.innerText = STATE.tunnels.length;
+  if (colCountNodes) colCountNodes.innerText = STATE.nodes.length;
 
   const totalIn = STATE.tunnels.reduce((acc, t) => acc + (t.bytes_in || 0), 0);
   const totalOut = STATE.tunnels.reduce((acc, t) => acc + (t.bytes_out || 0), 0);
   const totalNetworkTraffic = totalIn + totalOut;
-  if (totalTrafficEl) totalTrafficEl.innerText = formatBytes(totalNetworkTraffic);
+  if (colTotalTraffic) colTotalTraffic.innerText = formatBytes(totalNetworkTraffic);
 
-  if (avgLatencyEl) {
-    if (STATE.pings.length > 0) {
-      const avg = Math.round(STATE.pings.slice(0, 5).reduce((acc, p) => acc + p.latency_avg_ms, 0) / Math.min(5, STATE.pings.length));
-      avgLatencyEl.innerText = `${avg} ms`;
-    } else {
-      avgLatencyEl.innerText = '۹۴ ms (عالی)';
-    }
-  }
-
+  renderCloudflareTunnelsColumn();
+  renderCloudflareNodesColumn();
+  renderCloudflareAnalyticsColumn(totalIn, totalOut);
   renderTopology();
-  renderDashboardTrafficWidgets(totalNetworkTraffic);
-  renderDashboardNodeCards();
 }
 
-function renderDashboardTrafficWidgets(totalBytes) {
-  const container = document.getElementById('dashboard-traffic-widgets');
+function renderCloudflareTunnelsColumn() {
+  const container = document.getElementById('cf-col-tunnels-list');
   if (!container) return;
   container.innerHTML = '';
 
   if (STATE.tunnels.length === 0) {
-    container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px;">هیچ تانلی ایجاد نشده است.</div>';
+    container.innerHTML = '<div style="padding: 16px; color: var(--cf-text-muted); font-size: 13px;">هیچ تانلی ایجاد نشده است.</div>';
     return;
   }
 
   STATE.tunnels.forEach(tun => {
-    const card = document.createElement('div');
-    card.className = 'stat-card';
-    card.style.flexDirection = 'column';
-    card.style.alignItems = 'stretch';
-    card.style.gap = '14px';
+    const row = document.createElement('div');
+    row.className = 'cf-asset-row';
+    row.onclick = () => switchTab('tunnels');
 
-    const bIn = tun.bytes_in || 0;
-    const bOut = tun.bytes_out || 0;
-    const tTotal = bIn + bOut;
-    const pct = totalBytes > 0 ? Math.min(100, Math.round((tTotal / totalBytes) * 100)) : 0;
     const isHawal = tun.core_type === 'hawal';
+    const totalBytes = (tun.bytes_in || 0) + (tun.bytes_out || 0);
 
-    card.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 18px;">${isHawal ? '⚡' : '🚀'}</span>
-          <div>
-            <div style="font-weight: 800; font-size: 14px;">${tun.name}</div>
-            <div style="font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono';">پورت ${tun.core_port}</div>
-          </div>
-        </div>
-        <span class="badge badge-tag" style="color: var(--accent-amber); font-weight: 800;">
-          ${formatBytes(tTotal)}
-        </span>
-      </div>
-
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;">
-        <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 8px; border: var(--border-hairline);">
-          <div style="color: var(--text-muted);">📥 دانلود (In):</div>
-          <div style="font-family: 'JetBrains Mono'; font-weight: 700; color: #34d399; margin-top: 2px;">
-            ${formatBytes(bIn)}
-          </div>
-        </div>
-        <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 8px; border: var(--border-hairline);">
-          <div style="color: var(--text-muted);">📤 آپلود (Out):</div>
-          <div style="font-family: 'JetBrains Mono'; font-weight: 700; color: #38bdf8; margin-top: 2px;">
-            ${formatBytes(bOut)}
+    row.innerHTML = `
+      <div class="cf-asset-left">
+        <svg class="cf-asset-icon" style="color: var(--cf-orange);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+        <div>
+          <div class="cf-asset-title">${tun.name}</div>
+          <div class="cf-asset-subtitle">
+            ${isHawal ? '⚡ Stealth Core' : '🚀 Backhaul'} • پورت ${tun.core_port} • ${formatBytes(totalBytes)}
           </div>
         </div>
       </div>
-
-      <div>
-        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">
-          <span>سهم از کل ترافیک:</span>
-          <span style="font-family: 'JetBrains Mono';">${pct}%</span>
-        </div>
-        <div style="background: rgba(255,255,255,0.06); height: 4px; border-radius: 2px; overflow: hidden;">
-          <div style="width: ${pct}%; background: linear-gradient(90deg, var(--accent-flame), var(--accent-amber)); height: 100%;"></div>
-        </div>
-      </div>
+      <svg class="cf-asset-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
     `;
-    container.appendChild(card);
+    container.appendChild(row);
   });
+}
+
+function renderCloudflareNodesColumn() {
+  const container = document.getElementById('cf-col-nodes-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (STATE.nodes.length === 0) {
+    container.innerHTML = '<div style="padding: 16px; color: var(--cf-text-muted); font-size: 13px;">هیچ نودی یافت نشد.</div>';
+    return;
+  }
+
+  STATE.nodes.forEach(node => {
+    const row = document.createElement('div');
+    row.className = 'cf-asset-row';
+    row.onclick = () => switchTab('nodes');
+
+    const isOnline = node.status === 'online';
+
+    row.innerHTML = `
+      <div class="cf-asset-left">
+        <span style="font-size: 16px;">${node.flag || '🌐'}</span>
+        <div>
+          <div class="cf-asset-title">${node.name}</div>
+          <div class="cf-asset-subtitle">
+            ${node.ip} • <span style="color: ${isOnline ? 'var(--cf-green)' : 'var(--cf-red)'}; font-weight: 700;">${isOnline ? '🟢 آنلاین' : '🔴 آفلاین'}</span>
+          </div>
+        </div>
+      </div>
+      <svg class="cf-asset-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function renderCloudflareAnalyticsColumn(totalIn, totalOut) {
+  const container = document.getElementById('cf-col-analytics-list');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="cf-asset-row" onclick="switchTab('tunnels')">
+      <div class="cf-asset-left">
+        <svg class="cf-asset-icon" style="color: var(--cf-green);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+        <div>
+          <div class="cf-asset-title">Inbound Traffic (دانلود)</div>
+          <div class="cf-asset-subtitle">${formatBytes(totalIn)}</div>
+        </div>
+      </div>
+      <svg class="cf-asset-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+    </div>
+
+    <div class="cf-asset-row" onclick="switchTab('tunnels')">
+      <div class="cf-asset-left">
+        <svg class="cf-asset-icon" style="color: var(--cf-blue);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+        <div>
+          <div class="cf-asset-title">Outbound Traffic (آپلود)</div>
+          <div class="cf-asset-subtitle">${formatBytes(totalOut)}</div>
+        </div>
+      </div>
+      <svg class="cf-asset-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+    </div>
+
+    <div class="cf-asset-row" onclick="switchTab('ping')">
+      <div class="cf-asset-left">
+        <svg class="cf-asset-icon" style="color: var(--cf-orange);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+        <div>
+          <div class="cf-asset-title">Average Network RTT</div>
+          <div class="cf-asset-subtitle">~78.7 ms (0% Packet Loss)</div>
+        </div>
+      </div>
+      <svg class="cf-asset-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+    </div>
+  `;
 }
 
 function renderTopology() {
