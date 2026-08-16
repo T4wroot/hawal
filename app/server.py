@@ -261,6 +261,83 @@ class HTTPServer:
             await broadcast_ws({"event": "settings_updated"})
             return
 
+        if method == "PUT" and path.startswith("/api/tunnels/"):
+            tunnel_id = path.split("/")[3]
+            data = json.loads(body.decode('utf-8'))
+            name = data.get("name")
+            core_type = data.get("core_type", "hawal")
+            core_port = int(data.get("core_port", 3090))
+            transport = data.get("transport", "stealth" if core_type == "hawal" else "ws")
+            ports = data.get("ports", [])
+            
+            from app.db import update_tunnel, get_tunnel
+            t = get_tunnel(tunnel_id)
+            if not t:
+                self.send_json(writer, {"error": "Tunnel not found"}, status=404)
+                return
+
+            update_tunnel(tunnel_id, name or t["name"], core_port, transport, ports, core_type=core_type)
+            self.send_json(writer, {"success": True, "tunnel_id": tunnel_id})
+            await broadcast_ws({"event": "tunnel_updated"})
+            return
+
+        if method == "POST" and "/api/tunnels/" in path and path.endswith("/test"):
+            tunnel_id = path.split("/")[3]
+            t = get_tunnel(tunnel_id)
+            if not t:
+                self.send_json(writer, {"error": "Tunnel not found"}, status=404)
+                return
+
+            ports = t.get("ports", [])
+            test_port = None
+            if ports:
+                first_rule = ports[0]
+                test_port = int(first_rule.split("=")[0])
+            
+            if not test_port:
+                test_port = t.get("core_port", 3090)
+
+            latencies = []
+            for _ in range(3):
+                t0 = time.perf_counter()
+                try:
+                    sock = socket.socket()
+                    sock.settimeout(2.5)
+                    sock.connect(("127.0.0.1", test_port))
+                    t1 = time.perf_counter()
+                    latencies.append((t1 - t0) * 1000)
+                    sock.close()
+                except Exception as e:
+                    pass
+                time.sleep(0.05)
+
+            if latencies:
+                avg_ms = round(sum(latencies) / len(latencies), 1)
+                min_ms = round(min(latencies), 1)
+                max_ms = round(max(latencies), 1)
+                loss = round((3 - len(latencies)) / 3 * 100)
+                self.send_json(writer, {
+                    "success": True,
+                    "tunnel_id": tunnel_id,
+                    "tested_port": test_port,
+                    "latency_avg_ms": avg_ms,
+                    "latency_min_ms": min_ms,
+                    "latency_max_ms": max_ms,
+                    "packet_loss": loss,
+                    "status": "healthy" if avg_ms < 250 else "high_latency"
+                })
+            else:
+                self.send_json(writer, {
+                    "success": False,
+                    "tunnel_id": tunnel_id,
+                    "tested_port": test_port,
+                    "latency_avg_ms": None,
+                    "packet_loss": 100,
+                    "status": "unreachable",
+                    "error": "Connection timed out or refused"
+                })
+            return
+
         if method == "DELETE" and path.startswith("/api/tunnels/"):
             tunnel_id = path.split("/")[-1]
             delete_tunnel(tunnel_id)

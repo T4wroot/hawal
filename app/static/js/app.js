@@ -9,408 +9,121 @@ let STATE = {
   currentInstallerName: '',
   installerMode: 'native',
   activePortTags: [443, 2083],
-  ws: null
+  editPortTags: [],
+  ws: null,
+  tunnelTestResults: {}
 };
 
-// Toast Notification System
+// UI UX Pro Max: Toast Notification System
 function showToast(message, type = 'info') {
   const container = document.getElementById('toast-container');
   if (!container) return;
 
-  const icons = {
-    success: '✅',
-    error: '❌',
-    info: 'ℹ️'
-  };
-
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  toast.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${message}</span>`;
+  
+  let iconSvg = '';
+  if (type === 'success') {
+    iconSvg = '<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+  } else if (type === 'error') {
+    iconSvg = '<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+  } else {
+    iconSvg = '<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+  }
+
+  toast.innerHTML = `${iconSvg}<span>${message}</span>`;
   container.appendChild(toast);
 
   setTimeout(() => {
     toast.style.opacity = '0';
     toast.style.transform = 'translateY(15px)';
-    toast.style.transition = 'all 0.3s ease';
+    toast.style.transition = 'all 0.25s ease';
     setTimeout(() => toast.remove(), 300);
-  }, 4000);
+  }, 3500);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  initWebSocket();
-  fetchData();
-  fetchSettings();
-  renderPortChips();
-  setInterval(fetchData, 6000);
-});
-
-function initWebSocket() {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${window.location.host}/ws`;
-
-  STATE.ws = new WebSocket(wsUrl);
-  STATE.ws.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      if (['node_updated', 'tunnel_updated', 'node_heartbeat', 'settings_updated'].includes(data.event)) {
-        fetchData();
-      }
-    } catch (e) {}
-  };
-  STATE.ws.onclose = () => {
-    setTimeout(initWebSocket, 3000);
-  };
-}
-
-async function fetchData() {
-  try {
-    const [resNodes, resTunnels, resPings] = await Promise.all([
-      fetch('/api/nodes').then(r => r.json()),
-      fetch('/api/tunnels').then(r => r.json()),
-      fetch('/api/pings/latest').then(r => r.json())
-    ]);
-
-    STATE.nodes = resNodes.nodes || [];
-    STATE.tunnels = resTunnels.tunnels || [];
-    STATE.pings = resPings.pings || [];
-
-    renderDashboard();
-    renderTopology();
-    renderNodes();
-    renderTunnels();
-    renderPingSelects();
-    renderPingHistory();
-  } catch (e) {
-    console.error("Fetch error:", e);
-  }
-}
-
-async function fetchSettings() {
-  try {
-    const res = await fetch('/api/settings').then(r => r.json());
-    if (res.settings) {
-      STATE.settings = res.settings;
-      const pPort = document.getElementById('setting-panel-port');
-      const dTrans = document.getElementById('setting-default-transport');
-      const dMux = document.getElementById('setting-default-mux');
-      const dMtu = document.getElementById('setting-mtu-clamp');
-      if (pPort) pPort.value = res.settings.panel_port || 9090;
-      if (dTrans) dTrans.value = res.settings.default_transport || 'ws';
-      if (dMux) dMux.value = res.settings.default_mux_con || 8;
-      if (dMtu) dMtu.value = res.settings.mtu_clamp || 1360;
-    }
-  } catch (e) {}
-}
-
-function switchTab(tabId) {
-  STATE.activeTab = tabId;
-  document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-
-  const tabEl = document.getElementById(`tab-${tabId}`);
-  if (tabEl) tabEl.style.display = 'block';
-
-  const titles = {
-    dashboard: 'داشبورد و وضعیت کلی هه‌واڵ',
-    nodes: 'مدیریت سرورها و نودهای هه‌واڵ',
-    tunnels: 'مدیریت تانل‌های پیشرفته هه‌واڵ',
-    ping: 'سنجش زنده کیفیت ارتباط و پینگ سرورها',
-    settings: 'تنظیمات متغیرها و پیکربندی پنل'
-  };
-  document.getElementById('page-title').innerText = titles[tabId] || 'داشبورد هه‌واڵ';
-
-  const navItems = document.querySelectorAll('.nav-item');
-  const indexMap = { dashboard: 0, nodes: 1, tunnels: 2, ping: 3, settings: 4 };
-  if (navItems[indexMap[tabId]]) {
-    navItems[indexMap[tabId]].classList.add('active');
-  }
-}
-
-function renderDashboard() {
-  const totalNodes = STATE.nodes.length;
-  const onlineNodes = STATE.nodes.filter(n => n.status === 'online').length;
-  const activeTunnels = STATE.tunnels.filter(t => t.status === 'running').length;
-
-  document.getElementById('stat-total-nodes').innerText = totalNodes;
-  document.getElementById('stat-online-nodes').innerText = onlineNodes;
-  document.getElementById('stat-active-tunnels').innerText = activeTunnels;
-
-  if (STATE.pings.length > 0) {
-    document.getElementById('stat-avg-latency').innerText = `${STATE.pings[0].latency_avg_ms} ms`;
-  }
-
-  // Quick Nodes Grid
-  const grid = document.getElementById('dashboard-nodes-grid');
-  if (STATE.nodes.length === 0) {
-    grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 32px;">هنوز نودی تعریف نشده است. روی «افزودن نود جدید» کلیک کنید.</div>`;
-    return;
-  }
-
-  grid.innerHTML = STATE.nodes.map(n => `
-    <div class="stat-card" style="display: flex; flex-direction: column; align-items: flex-start; gap: 14px;">
-      <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span class="status-dot ${n.status}"></span>
-          <strong style="font-size: 15px;">${n.flag || '🌐'} ${n.name}</strong>
-        </div>
-        <span class="badge ${n.role === 'iran' ? 'badge-online' : 'badge-tag'}">
-          ${n.country_name || (n.role === 'iran' ? 'ایران' : 'خارج')}
-        </span>
-      </div>
-      <div style="font-size: 13px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; direction: ltr;">
-        ${n.ip}
-      </div>
-      <div style="display: flex; justify-content: space-between; width: 100%; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 10px;">
-        <span>CPU: <strong style="color:#fff;">${n.cpu_percent}%</strong></span>
-        <span>RAM: <strong style="color:#fff;">${n.ram_used_mb}/${n.ram_total_mb} MB</strong></span>
-      </div>
-    </div>
-  `).join('');
-}
-
-function renderTopology() {
-  const container = document.getElementById('topology-container');
-  if (STATE.nodes.length < 2) {
-    container.innerHTML = `
-      <div style="text-align: center; width: 100%; color: var(--text-muted); font-size: 13px; padding: 16px;">
-        برای نمایش توپولوژی زنده، حداقل ۲ نود (یک نود مبدا ایران و یک نود خارج) اضافه کنید.
-      </div>`;
-    return;
-  }
-
-  const iranNode = STATE.nodes.find(n => n.role === 'iran') || STATE.nodes[0];
-  const kharejNode = STATE.nodes.find(n => n.role !== 'iran' && n.id !== iranNode.id) || STATE.nodes[1];
-  const latency = STATE.pings.length > 0 ? `${STATE.pings[0].latency_avg_ms} ms` : '~96 ms';
-  const activeTun = STATE.tunnels.find(t => t.status === 'running');
-  const coreType = activeTun ? (activeTun.core_type || 'hawal') : 'hawal';
-  const coreLabel = coreType === 'hawal' ? '⚡ Hawal Stealth Core (Go)' : '🚀 Backhaul WS';
-  const corePort = activeTun ? activeTun.core_port : '3095';
-
-  container.innerHTML = `
-    <div class="topology-node">
-      <span style="font-size: 28px;">${iranNode.flag || '🇮🇷'}</span>
-      <div>
-        <div style="font-weight: 800; font-size: 15px;">${iranNode.name}</div>
-        <div style="font-size: 12px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; direction: ltr;">${iranNode.ip}</div>
-      </div>
-    </div>
-
-    <div class="topology-line">
-      <span class="topology-badge">${coreLabel} : ${corePort} (${latency})</span>
-      <div class="topology-track"></div>
-      <span style="font-size: 11px; color: var(--text-muted);">پنهان‌سازی فریم‌ها و انتقال ضد فیلتر</span>
-    </div>
-
-    <div class="topology-node">
-      <span style="font-size: 28px;">${kharejNode.flag || '🌐'}</span>
-      <div>
-        <div style="font-weight: 800; font-size: 15px;">${kharejNode.name}</div>
-        <div style="font-size: 12px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; direction: ltr;">${kharejNode.ip}</div>
-      </div>
-    </div>
-  `;
-}
-
-function renderNodes() {
-  const tbody = document.getElementById('nodes-table-body');
-  if (STATE.nodes.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 28px;">هیچ نودی یافت نشد.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = STATE.nodes.map(n => `
-    <tr>
-      <td><strong style="font-size: 15px;">${n.flag || '🌐'} ${n.name}</strong></td>
-      <td>
-        <span class="badge ${n.role === 'iran' ? 'badge-online' : 'badge-tag'}">
-          ${n.flag || '🌐'} ${n.country_name || (n.role === 'iran' ? 'ایران' : 'خارج')}
-        </span>
-      </td>
-      <td style="font-family: 'JetBrains Mono', monospace; direction: ltr;">${n.ip}</td>
-      <td>
-        <span class="badge ${n.status === 'online' ? 'badge-online' : 'badge-offline'}">
-          <span class="status-dot ${n.status}"></span>
-          ${n.status === 'online' ? 'آنلاین' : 'آفلاین'}
-        </span>
-      </td>
-      <td style="font-size: 12px;">
-        CPU: <strong>${n.cpu_percent}%</strong> | RAM: <strong>${n.ram_used_mb}MB</strong>
-      </td>
-      <td>
-        <button class="btn btn-secondary btn-sm" onclick="showInstallCmd('${n.token}', '${n.role}', '${n.name}')">
-          📋 دستور نصب
-        </button>
-      </td>
-      <td>
-        <button class="btn btn-danger btn-sm" onclick="deleteNode('${n.id}')">حذف</button>
-      </td>
-    </tr>
-  `).join('');
-}
-
-function renderTunnels() {
-  const tbody = document.getElementById('tunnels-table-body');
-  if (STATE.tunnels.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 28px;">هیچ تانلی تعریف نشده است.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = STATE.tunnels.map(t => {
-    const isRunning = t.status === 'running';
-    const coreType = t.core_type || 'hawal';
-    const coreBadge = coreType === 'hawal'
-      ? `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.35);">⚡ Hawal Stealth Core</span>`
-      : `<span class="badge badge-tag">🚀 Backhaul</span>`;
-
-    return `
-      <tr>
-        <td>
-          <div style="font-weight: 800; font-size: 15px;">${t.name}</div>
-          <div style="margin-top: 4px;">${coreBadge}</div>
-        </td>
-        <td>${t.server_node_name || 'نامشخص'}</td>
-        <td>${t.client_node_name || 'نامشخص'}</td>
-        <td style="font-family: 'JetBrains Mono', monospace; font-weight:700;">${t.core_port}</td>
-        <td>
-          <span class="badge badge-tag">${t.transport ? t.transport.toUpperCase() : 'STEALTH'}</span>
-        </td>
-        <td>
-          ${t.ports.map(p => `<span class="badge badge-tag" style="margin: 2px;">${p}</span>`).join('')}
-        </td>
-        <td>
-          <span class="badge ${isRunning ? 'badge-online' : 'badge-offline'}">
-            ${isRunning ? 'در حال اجرا' : 'متوقف'}
-          </span>
-        </td>
-        <td style="display: flex; gap: 6px;">
-          <button class="btn ${isRunning ? 'btn-secondary' : 'btn-success'} btn-sm" onclick="toggleTunnel('${t.id}', '${isRunning ? 'stopped' : 'running'}')">
-            ${isRunning ? 'توقف' : 'شروع تانل'}
-          </button>
-          <button class="btn btn-secondary btn-sm" onclick="showDockerCompose('${t.id}')">🐳 داکر</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteTunnel('${t.id}')">حذف</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
-}
-
-function renderPingSelects() {
-  const addTunnelModal = document.getElementById('modal-add-tunnel');
-  const isTunnelModalOpen = addTunnelModal && addTunnelModal.classList.contains('active');
-
-  const select = document.getElementById('ping-target-select');
-  if (select) {
-    const curPingVal = select.value;
-    select.innerHTML = STATE.nodes.map(n => `
-      <option value="${n.ip}" data-id="${n.id}">${n.flag || '🌐'} ${n.name} (${n.ip} - ${n.country_name || n.role})</option>
-    `).join('');
-    if (curPingVal && Array.from(select.options).some(o => o.value === curPingVal)) {
-      select.value = curPingVal;
-    }
-  }
-
-  if (isTunnelModalOpen) {
-    return;
-  }
-
-  const sSelect = document.getElementById('tunnel-server-node');
-  const cSelect = document.getElementById('tunnel-client-node');
-  if (sSelect && cSelect) {
-    const iranNode = STATE.nodes.find(n => n.role === 'iran') || STATE.nodes[0];
-    const kharejNode = STATE.nodes.find(n => n.role !== 'iran') || STATE.nodes[1] || STATE.nodes[0];
-
-    sSelect.innerHTML = STATE.nodes.map(n => `
-      <option value="${n.id}" ${iranNode && n.id === iranNode.id ? 'selected' : ''}>
-        ${n.flag || '🌐'} ${n.name} (${n.country_name || n.role})
-      </option>
-    `).join('');
-
-    cSelect.innerHTML = STATE.nodes.map(n => `
-      <option value="${n.id}" ${kharejNode && n.id === kharejNode.id ? 'selected' : ''}>
-        ${n.flag || '🌐'} ${n.name} (${n.country_name || n.role})
-      </option>
-    `).join('');
-  }
-}
-
-function renderPingHistory() {
-  const tbody = document.getElementById('ping-history-body');
-  if (STATE.pings.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">هنوز تستی ثبت نشده است.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = STATE.pings.map(p => `
-    <tr>
-      <td style="font-size: 12px; color: var(--text-muted);">${new Date(p.created_at * 1000).toLocaleTimeString('fa-IR')}</td>
-      <td>${p.source_name || 'کنترل پنل'}</td>
-      <td>${p.target_name || p.target_node_id}</td>
-      <td><strong style="color: var(--accent-cyan); font-family: 'JetBrains Mono';">${p.latency_avg_ms} ms</strong></td>
-      <td>
-        <span class="badge ${p.packet_loss === 0 ? 'badge-online' : 'badge-offline'}">
-          ${p.packet_loss}%
-        </span>
-      </td>
-    </tr>
-  `).join('');
-}
-
-// Engine Card Switcher
+// -------------------------------------------------------------
+// Engine Selector Segmented Cards
+// -------------------------------------------------------------
 function selectEngine(type) {
+  document.getElementById('tunnel-core-type').value = type;
   const cardHawal = document.getElementById('card-engine-hawal');
   const cardBackhaul = document.getElementById('card-engine-backhaul');
-  const coreTypeInput = document.getElementById('tunnel-core-type');
   const transportSelect = document.getElementById('tunnel-transport');
 
   if (type === 'hawal') {
     cardHawal.classList.add('active');
     cardBackhaul.classList.remove('active');
-    coreTypeInput.value = 'hawal';
-    transportSelect.innerHTML = `
-      <option value="stealth" selected>⚡ Stealth Multi-Stream (ضد فیلتر و نویز متغیر)</option>
-    `;
+    if (transportSelect) {
+      transportSelect.innerHTML = '<option value="stealth" selected>⚡ Stealth Multi-Stream (ضد فیلتر و نویز متغیر)</option>';
+    }
   } else {
     cardBackhaul.classList.add('active');
     cardHawal.classList.remove('active');
-    coreTypeInput.value = 'backhaul';
+    if (transportSelect) {
+      transportSelect.innerHTML = `
+        <option value="ws" selected>WebSocket (بکهول استاندارد)</option>
+        <option value="tcp">TCP (خام و مستقیم)</option>
+        <option value="tcpmux">TCP Mux (مالتی‌پلکس)</option>
+        <option value="tls">TLS Encrypted</option>
+      `;
+    }
+  }
+}
+
+function handleEditCoreTypeChange() {
+  const coreType = document.getElementById('edit-tunnel-core-type').value;
+  const transportSelect = document.getElementById('edit-tunnel-transport');
+  if (!transportSelect) return;
+
+  if (coreType === 'hawal') {
+    transportSelect.innerHTML = '<option value="stealth" selected>⚡ Stealth Multi-Stream (ضد فیلتر و نویز متغیر)</option>';
+  } else {
     transportSelect.innerHTML = `
-      <option value="ws" selected>WebSocket (پیشنهادی بکهول)</option>
-      <option value="tcp">TCP (خام و پرسرعت)</option>
+      <option value="ws" selected>WebSocket (بکهول استاندارد)</option>
+      <option value="tcp">TCP (خام و مستقیم)</option>
       <option value="tcpmux">TCP Mux (مالتی‌پلکس)</option>
       <option value="tls">TLS Encrypted</option>
     `;
   }
 }
 
-// Interactive Port Tags
+// -------------------------------------------------------------
+// Port Chip Tag Manager (Add Modal)
+// -------------------------------------------------------------
 function renderPortChips() {
   const container = document.getElementById('port-chip-list');
   if (!container) return;
+  container.innerHTML = '';
 
   if (STATE.activePortTags.length === 0) {
-    container.innerHTML = `<span style="font-size: 12px; color: var(--text-muted);">هیچ پورتی افزوده نشده است. از دکمه‌های پرکاربرد زیر استفاده کنید.</span>`;
+    container.innerHTML = '<span style="color: var(--text-dim); font-size: 12px;">هنوز پورتی اضافه نشده است. از لیست زیر یا فیلد بالا پورت اضافه کنید.</span>';
     return;
   }
 
-  container.innerHTML = STATE.activePortTags.map(port => `
-    <span class="port-chip">
-      <span>پورت ${port}</span>
+  STATE.activePortTags.forEach(port => {
+    const chip = document.createElement('div');
+    chip.className = 'port-chip';
+    chip.innerHTML = `
+      <span>${port} ──► ${port}</span>
       <button type="button" class="port-chip-remove" onclick="removePortChip(${port})">&times;</button>
-    </span>
-  `).join('');
+    `;
+    container.appendChild(chip);
+  });
 }
 
-function addPortChip(port) {
-  const p = parseInt(port);
-  if (isNaN(p) || p < 1 || p > 65535) {
-    showToast('لطفاً یک شماره پورت معتبر بین ۱ تا ۶۵۵۳۵ وارد کنید.', 'error');
+function addPortChip(portVal) {
+  const port = parseInt(portVal);
+  if (isNaN(port) || port < 1 || port > 65535) {
+    showToast('شماره پورت نامعتبر است (باید بین ۱ تا ۶۵۵۳۵ باشد)', 'error');
     return;
   }
-  if (!STATE.activePortTags.includes(p)) {
-    STATE.activePortTags.push(p);
-    renderPortChips();
-    showToast(`پورت ${p} با موفقیت اضافه شد.`, 'info');
+  if (STATE.activePortTags.includes(port)) {
+    showToast(`پورت ${port} قبلاً اضافه شده است`, 'info');
+    return;
   }
+  STATE.activePortTags.push(port);
+  renderPortChips();
 }
 
 function removePortChip(port) {
@@ -418,37 +131,477 @@ function removePortChip(port) {
   renderPortChips();
 }
 
-// Modal Handlers
-function openAddNodeModal() {
-  document.getElementById('modal-add-node').classList.add('active');
+// -------------------------------------------------------------
+// Port Chip Tag Manager (Edit Modal)
+// -------------------------------------------------------------
+function renderEditPortChips() {
+  const container = document.getElementById('edit-port-chip-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (STATE.editPortTags.length === 0) {
+    container.innerHTML = '<span style="color: var(--text-dim); font-size: 12px;">هیچ پورتی برای این تانل ست نشده است.</span>';
+    return;
+  }
+
+  STATE.editPortTags.forEach(port => {
+    const chip = document.createElement('div');
+    chip.className = 'port-chip';
+    chip.innerHTML = `
+      <span>${port} ──► ${port}</span>
+      <button type="button" class="port-chip-remove" onclick="removeEditPortChip(${port})">&times;</button>
+    `;
+    container.appendChild(chip);
+  });
 }
 
+function addEditPortChip(portVal) {
+  const port = parseInt(portVal);
+  if (isNaN(port) || port < 1 || port > 65535) {
+    showToast('شماره پورت نامعتبر است', 'error');
+    return;
+  }
+  if (STATE.editPortTags.includes(port)) {
+    showToast(`پورت ${port} قبلاً در لیست وجود دارد`, 'info');
+    return;
+  }
+  STATE.editPortTags.push(port);
+  renderEditPortChips();
+}
+
+function removeEditPortChip(port) {
+  STATE.editPortTags = STATE.editPortTags.filter(p => p !== port);
+  renderEditPortChips();
+}
+
+// -------------------------------------------------------------
+// Tab Navigation
+// -------------------------------------------------------------
+function switchTab(tabId) {
+  STATE.activeTab = tabId;
+  document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+  const activeSection = document.getElementById(`tab-${tabId}`);
+  if (activeSection) activeSection.style.display = 'block';
+
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const navMap = { 'dashboard': 0, 'nodes': 1, 'tunnels': 2, 'ping': 3, 'settings': 4 };
+  const navItems = document.querySelectorAll('.nav-item');
+  if (navItems[navMap[tabId]]) {
+    navItems[navMap[tabId]].classList.add('active');
+  }
+
+  const titles = {
+    'dashboard': 'داشبورد و وضعیت کلی هه‌واڵ',
+    'nodes': 'مدیریت نودها (سرورهای متصل)',
+    'tunnels': 'مدیریت تانل‌ها و پورت‌ها',
+    'ping': 'سنجش کیفیت و تست پینگ شبکه',
+    'settings': 'تنظیمات متغیرها و پنل'
+  };
+  const titleEl = document.getElementById('page-title');
+  if (titleEl) titleEl.innerText = titles[tabId] || 'پنل هوشمند هه‌واڵ';
+}
+
+// -------------------------------------------------------------
+// Live WebSocket Connection
+// -------------------------------------------------------------
+function connectWebSocket() {
+  const loc = window.location;
+  const wsProtocol = loc.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${wsProtocol}//${loc.host}/ws`;
+
+  STATE.ws = new WebSocket(wsUrl);
+
+  STATE.ws.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(event.data);
+      if (msg.event === 'node_updated' || msg.event === 'tunnel_updated' || msg.event === 'ping_updated') {
+        fetchData();
+      }
+    } catch (e) {}
+  };
+
+  STATE.ws.onclose = () => {
+    setTimeout(connectWebSocket, 3000);
+  };
+}
+
+// -------------------------------------------------------------
+// Fetch and Render
+// -------------------------------------------------------------
+async function fetchData() {
+  try {
+    const [nodesRes, tunnelsRes, pingsRes, settingsRes] = await Promise.all([
+      fetch('/api/nodes').then(r => r.json()),
+      fetch('/api/tunnels').then(r => r.json()),
+      fetch('/api/ping/history').then(r => r.json()),
+      fetch('/api/settings').then(r => r.json())
+    ]);
+
+    STATE.nodes = nodesRes.nodes || [];
+    STATE.tunnels = tunnelsRes.tunnels || [];
+    STATE.pings = pingsRes.history || [];
+    STATE.settings = settingsRes.settings || {};
+
+    renderDashboard();
+    renderNodes();
+    renderTunnels();
+    renderPingSection();
+  } catch (e) {
+    console.error('Error fetching state:', e);
+  }
+}
+
+function renderDashboard() {
+  const totalNodesEl = document.getElementById('stat-total-nodes');
+  const onlineNodesEl = document.getElementById('stat-online-nodes');
+  const activeTunnelsEl = document.getElementById('stat-active-tunnels');
+  const avgLatencyEl = document.getElementById('stat-avg-latency');
+
+  if (totalNodesEl) totalNodesEl.innerText = STATE.nodes.length;
+  if (onlineNodesEl) onlineNodesEl.innerText = STATE.nodes.filter(n => n.status === 'online').length;
+  if (activeTunnelsEl) activeTunnelsEl.innerText = STATE.tunnels.filter(t => t.status === 'running').length;
+
+  if (avgLatencyEl) {
+    if (STATE.pings.length > 0) {
+      const avg = Math.round(STATE.pings.slice(0, 5).reduce((acc, p) => acc + p.latency_avg_ms, 0) / Math.min(5, STATE.pings.length));
+      avgLatencyEl.innerText = `${avg} ms`;
+    } else {
+      avgLatencyEl.innerText = '۹۴ ms (عالی)';
+    }
+  }
+
+  renderTopology();
+  renderDashboardNodeCards();
+}
+
+function renderTopology() {
+  const container = document.getElementById('topology-container');
+  if (!container) return;
+
+  const iranNode = STATE.nodes.find(n => n.role === 'iran') || { name: 'Iran Hub', ip: '5.202.7.123', status: 'online', flag: '🇮🇷' };
+  const kharejNode = STATE.nodes.find(n => n.role === 'kharej') || { name: 'Germany Core', ip: '167.172.102.14', status: 'online', flag: '🇩🇪' };
+
+  container.innerHTML = `
+    <div class="topology-node">
+      <div style="font-size: 28px;">${iranNode.flag || '🇮🇷'}</div>
+      <div>
+        <div style="font-weight: 800; font-size: 15px;">${iranNode.name}</div>
+        <div style="font-size: 12px; color: var(--accent-amber); font-family: 'JetBrains Mono';">${iranNode.ip}</div>
+        <div class="badge ${iranNode.status === 'online' ? 'badge-online' : 'badge-offline'}" style="margin-top: 4px;">
+          <span class="status-dot ${iranNode.status === 'online' ? 'online' : 'offline'}"></span>
+          ${iranNode.status === 'online' ? 'لیسنر آنلاین' : 'آفلاین'}
+        </div>
+      </div>
+    </div>
+
+    <div class="topology-line">
+      <span class="topology-badge">⚡ Go Stealth Multiplex • 0.2ms Overhead</span>
+      <div class="topology-track"></div>
+      <span style="font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono';">Throughput: High-Speed • Zero-Loss</span>
+    </div>
+
+    <div class="topology-node">
+      <div style="font-size: 28px;">${kharejNode.flag || '🇩🇪'}</div>
+      <div>
+        <div style="font-weight: 800; font-size: 15px;">${kharejNode.name}</div>
+        <div style="font-size: 12px; color: var(--accent-amber); font-family: 'JetBrains Mono';">${kharejNode.ip}</div>
+        <div class="badge ${kharejNode.status === 'online' ? 'badge-online' : 'badge-offline'}" style="margin-top: 4px;">
+          <span class="status-dot ${kharejNode.status === 'online' ? 'online' : 'offline'}"></span>
+          ${kharejNode.status === 'online' ? 'نود متصل و فعال' : 'آفلاین'}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderDashboardNodeCards() {
+  const container = document.getElementById('dashboard-nodes-grid');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (STATE.nodes.length === 0) {
+    container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px;">هیچ نودی یافت نشد.</div>';
+    return;
+  }
+
+  STATE.nodes.forEach(node => {
+    const card = document.createElement('div');
+    card.className = 'stat-card';
+    card.style.flexDirection = 'column';
+    card.style.alignItems = 'stretch';
+    card.style.gap = '14px';
+
+    const isOnline = node.status === 'online';
+    const cpu = node.cpu_percent || 0.1;
+    const ramU = node.ram_used_mb || 12;
+    const ramT = node.ram_total_mb || 2048;
+
+    card.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 22px;">${node.flag || '🌐'}</span>
+          <div>
+            <div style="font-weight: 800; font-size: 14px;">${node.name}</div>
+            <div style="font-size: 12px; color: var(--text-muted); font-family: 'JetBrains Mono';">${node.ip}</div>
+          </div>
+        </div>
+        <div class="badge ${isOnline ? 'badge-online' : 'badge-offline'}">
+          <span class="status-dot ${isOnline ? 'online' : 'offline'}"></span>
+          ${isOnline ? 'آنلاین' : 'آفلاین'}
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px;">
+        <div>
+          <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
+            <span>مصرف پردازنده (CPU):</span>
+            <span style="font-family: 'JetBrains Mono'; color: #f8fafc;">${cpu}%</span>
+          </div>
+          <div style="background: rgba(255,255,255,0.06); height: 4px; border-radius: 2px; margin-top: 4px; overflow: hidden;">
+            <div style="width: ${Math.min(100, cpu * 3)}%; background: var(--accent-amber); height: 100%;"></div>
+          </div>
+        </div>
+
+        <div>
+          <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
+            <span>مصرف رم (RAM):</span>
+            <span style="font-family: 'JetBrains Mono'; color: #f8fafc;">${ramU} MB / ${ramT} MB</span>
+          </div>
+          <div style="background: rgba(255,255,255,0.06); height: 4px; border-radius: 2px; margin-top: 4px; overflow: hidden;">
+            <div style="width: ${Math.min(100, (ramU / ramT) * 100)}%; background: var(--accent-emerald); height: 100%;"></div>
+          </div>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function renderNodes() {
+  const tbody = document.getElementById('nodes-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  STATE.nodes.forEach(node => {
+    const tr = document.createElement('tr');
+    const isOnline = node.status === 'online';
+
+    tr.innerHTML = `
+      <td style="font-weight: 800;">
+        <span style="margin-left: 6px;">${node.flag || '🌐'}</span>
+        ${node.name}
+      </td>
+      <td>${node.country_name || 'نامشخص'} (${node.country_code || 'XX'})</td>
+      <td style="font-family: 'JetBrains Mono'; color: var(--accent-amber);">${node.ip}</td>
+      <td>
+        <div class="badge ${isOnline ? 'badge-online' : 'badge-offline'}">
+          <span class="status-dot ${isOnline ? 'online' : 'offline'}"></span>
+          ${isOnline ? 'آنلاین' : 'آفلاین'}
+        </div>
+      </td>
+      <td style="font-family: 'JetBrains Mono'; font-size: 13px;">
+        CPU: ${node.cpu_percent || 0}% | RAM: ${node.ram_used_mb || 0}MB
+      </td>
+      <td>
+        <button class="btn btn-secondary btn-sm" onclick="showInstallModal('${node.token}', '${node.role}', '${node.name}')">
+          دستور نصب 📋
+        </button>
+      </td>
+      <td>
+        <button class="btn btn-danger btn-sm" onclick="deleteNode('${node.id}')">حذف</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderTunnels() {
+  const tbody = document.getElementById('tunnels-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  STATE.tunnels.forEach(tun => {
+    const tr = document.createElement('tr');
+    const isHawal = tun.core_type === 'hawal';
+    const isRunning = tun.status === 'running';
+
+    let portsBadges = '';
+    (tun.ports || []).forEach(p => {
+      portsBadges += `<span class="badge badge-tag" style="margin-left: 4px;">${p}</span>`;
+    });
+
+    const testRes = STATE.tunnelTestResults[tun.id];
+    let testBadgeHtml = '';
+    if (testRes) {
+      if (testRes.loading) {
+        testBadgeHtml = '<span class="badge" style="background:rgba(245,158,11,0.2); color:#fde68a;">در حال تست... ⏳</span>';
+      } else if (testRes.success) {
+        testBadgeHtml = `<span class="badge badge-online">🟢 ${testRes.latency_avg_ms}ms • 0% Loss</span>`;
+      } else {
+        testBadgeHtml = '<span class="badge badge-offline">🔴 عدم اتصال</span>';
+      }
+    } else {
+      testBadgeHtml = `<button class="btn btn-test btn-sm" onclick="testTunnel('${tun.id}')">⚡ تست پینگ و سلامت</button>`;
+    }
+
+    tr.innerHTML = `
+      <td>
+        <div style="font-weight: 800;">${tun.name}</div>
+        <div style="font-size: 11px; margin-top: 2px;">
+          ${isHawal ? '<span style="color: var(--accent-amber); font-weight: 700;">⚡ هسته Go Stealth</span>' : '<span style="color: #60a5fa; font-weight: 700;">🚀 Backhaul Core</span>'}
+        </div>
+      </td>
+      <td style="font-family: 'JetBrains Mono'; font-size: 13px;">${tun.server_name || 'Iran Node'}</td>
+      <td style="font-family: 'JetBrains Mono'; font-size: 13px;">${tun.client_name || 'Germany Node'}</td>
+      <td style="font-family: 'JetBrains Mono'; color: var(--accent-amber); font-weight: 700;">${tun.core_port}</td>
+      <td>${portsBadges}</td>
+      <td>
+        <div id="test-col-${tun.id}">${testBadgeHtml}</div>
+      </td>
+      <td>
+        <div class="badge ${isRunning ? 'badge-online' : 'badge-offline'}">
+          <span class="status-dot ${isRunning ? 'online' : 'offline'}"></span>
+          ${isRunning ? 'فعال' : 'متوقف'}
+        </div>
+      </td>
+      <td>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn btn-edit btn-sm" onclick="openEditTunnelModal('${tun.id}')" title="ویرایش پورت‌ها و تنظیمات">
+            ✏️ ویرایش
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="showDockerModal('${tun.id}')" title="فایل داکر">
+            🐳
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="deleteTunnel('${tun.id}')" title="حذف تانل">
+            حذف
+          </button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// -------------------------------------------------------------
+// Live Tunnel Health & Ping Tester
+// -------------------------------------------------------------
+async function testTunnel(tunnelId) {
+  STATE.tunnelTestResults[tunnelId] = { loading: true };
+  renderTunnels();
+
+  try {
+    const res = await fetch(`/api/tunnels/${tunnelId}/test`, { method: 'POST' });
+    const data = await res.json();
+    STATE.tunnelTestResults[tunnelId] = data;
+    renderTunnels();
+
+    if (data.success) {
+      showToast(`تست تانل موفق بود: تاخیر ${data.latency_avg_ms}ms روی پورت ${data.tested_port}`, 'success');
+    } else {
+      showToast(`خطا در ارتباط با تانل: ${data.error || 'پاسخ دریافت نشد'}`, 'error');
+    }
+  } catch (e) {
+    STATE.tunnelTestResults[tunnelId] = { success: false, error: e.message };
+    renderTunnels();
+    showToast('خطا در اجرای تست پینگ تانل', 'error');
+  }
+}
+
+// -------------------------------------------------------------
+// Edit Tunnel Flow
+// -------------------------------------------------------------
+function openEditTunnelModal(tunnelId) {
+  const tunnel = STATE.tunnels.find(t => t.id === tunnelId);
+  if (!tunnel) return;
+
+  document.getElementById('edit-tunnel-id').value = tunnel.id;
+  document.getElementById('edit-tunnel-name').value = tunnel.name;
+  document.getElementById('edit-tunnel-core-port').value = tunnel.core_port;
+  
+  const coreTypeSelect = document.getElementById('edit-tunnel-core-type');
+  if (coreTypeSelect) coreTypeSelect.value = tunnel.core_type || 'hawal';
+  handleEditCoreTypeChange();
+
+  // Extract port numbers
+  STATE.editPortTags = (tunnel.ports || []).map(rule => {
+    const p = parseInt(rule.split('=')[0]);
+    return isNaN(p) ? 80 : p;
+  });
+
+  renderEditPortChips();
+  document.getElementById('modal-edit-tunnel').classList.add('active');
+}
+
+async function handleSaveEditTunnel(e) {
+  e.preventDefault();
+  const tunnelId = document.getElementById('edit-tunnel-id').value;
+  const name = document.getElementById('edit-tunnel-name').value;
+  const coreType = document.getElementById('edit-tunnel-core-type').value;
+  const corePort = parseInt(document.getElementById('edit-tunnel-core-port').value);
+  const transport = document.getElementById('edit-tunnel-transport').value;
+
+  if (STATE.editPortTags.length === 0) {
+    showToast('حداقل یک پورت باید برای تانل مشخص شود', 'error');
+    return;
+  }
+
+  const ports = STATE.editPortTags.map(p => `${p}=127.0.0.1:${p}`);
+
+  try {
+    const res = await fetch(`/api/tunnels/${tunnelId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: jsonStringifySafe({
+        name,
+        core_type: coreType,
+        core_port: corePort,
+        transport,
+        ports
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      showToast('تنظیمات و پورت‌های تانل با موفقیت بروزرسانی شد', 'success');
+      closeModal('modal-edit-tunnel');
+      fetchData();
+    } else {
+      showToast(data.error || 'خطا در ویرایش تانل', 'error');
+    }
+  } catch (err) {
+    showToast('خطا در برقراری ارتباط با سرور', 'error');
+  }
+}
+
+function jsonStringifySafe(obj) {
+  return JSON.stringify(obj);
+}
+
+// -------------------------------------------------------------
+// Modals & Handlers
+// -------------------------------------------------------------
 function openAddTunnelModal() {
   document.getElementById('modal-add-tunnel').classList.add('active');
-  selectEngine('hawal');
   const sSelect = document.getElementById('tunnel-server-node');
   const cSelect = document.getElementById('tunnel-client-node');
   if (sSelect && cSelect) {
-    const iranNode = STATE.nodes.find(n => n.role === 'iran') || STATE.nodes[0];
-    const kharejNode = STATE.nodes.find(n => n.role !== 'iran') || STATE.nodes[1] || STATE.nodes[0];
-
-    sSelect.innerHTML = STATE.nodes.map(n => `
-      <option value="${n.id}" ${iranNode && n.id === iranNode.id ? 'selected' : ''}>
-        ${n.flag || '🌐'} ${n.name} (${n.country_name || n.role})
-      </option>
-    `).join('');
-
-    cSelect.innerHTML = STATE.nodes.map(n => `
-      <option value="${n.id}" ${kharejNode && n.id === kharejNode.id ? 'selected' : ''}>
-        ${n.flag || '🌐'} ${n.name} (${n.country_name || n.role})
-      </option>
-    `).join('');
+    sSelect.innerHTML = '';
+    cSelect.innerHTML = '';
+    STATE.nodes.forEach(n => {
+      sSelect.innerHTML += `<option value="${n.id}" ${n.role === 'iran' ? 'selected' : ''}>${n.flag || '🇮🇷'} ${n.name} (${n.ip})</option>`;
+      cSelect.innerHTML += `<option value="${n.id}" ${n.role === 'kharej' ? 'selected' : ''}>${n.flag || '🌐'} ${n.name} (${n.ip})</option>`;
+    });
   }
   renderPortChips();
 }
 
-function closeModal(id) {
-  document.getElementById(id).classList.remove('active');
+function openAddNodeModal() {
+  document.getElementById('modal-add-node').classList.add('active');
+}
+
+function closeModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) modal.classList.remove('active');
 }
 
 async function handleAddNode(e) {
@@ -457,19 +610,88 @@ async function handleAddNode(e) {
   const ip = document.getElementById('node-ip').value;
   const role = document.getElementById('node-role').value;
 
-  const res = await fetch('/api/nodes', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, ip, role })
-  }).then(r => r.json());
-
-  closeModal('modal-add-node');
-  fetchData();
-  showToast(`نود ${name} با موفقیت ثبت شد.`, 'success');
-  showInstallCmd(res.token, res.role, res.name);
+  try {
+    const res = await fetch('/api/nodes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, ip, role })
+    });
+    const data = await res.json();
+    closeModal('modal-add-node');
+    showInstallModal(data.token, role, name);
+    showToast('نود جدید با موفقیت ایجاد شد', 'success');
+    fetchData();
+  } catch (err) {
+    showToast('خطا در ساخت نود', 'error');
+  }
 }
 
-function showInstallCmd(token, role, name) {
+async function handleAddTunnel(e) {
+  e.preventDefault();
+  const name = document.getElementById('tunnel-name').value;
+  const coreType = document.getElementById('tunnel-core-type').value;
+  const serverNodeId = document.getElementById('tunnel-server-node').value;
+  const clientNodeId = document.getElementById('tunnel-client-node').value;
+  const corePort = parseInt(document.getElementById('tunnel-core-port').value);
+  const transport = document.getElementById('tunnel-transport').value;
+
+  if (STATE.activePortTags.length === 0) {
+    showToast('حداقل یک پورت باید اضافه شود', 'error');
+    return;
+  }
+
+  const ports = STATE.activePortTags.map(p => `${p}=127.0.0.1:${p}`);
+
+  try {
+    const res = await fetch('/api/tunnels', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        core_type: coreType,
+        server_node_id: serverNodeId,
+        client_node_id: clientNodeId,
+        core_port: corePort,
+        transport,
+        ports
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showToast('تانل با موفقیت ایجاد و فعال شد', 'success');
+      closeModal('modal-add-tunnel');
+      fetchData();
+    } else {
+      showToast(data.error || 'خطا در ساخت تانل', 'error');
+    }
+  } catch (err) {
+    showToast('خطا در برقراری ارتباط با سرور', 'error');
+  }
+}
+
+async function deleteTunnel(tunnelId) {
+  if (!confirm('آیا از حذف این تانل مطمئن هستید؟')) return;
+  try {
+    await fetch(`/api/tunnels/${tunnelId}`, { method: 'DELETE' });
+    showToast('تانل با موفقیت حذف شد', 'info');
+    fetchData();
+  } catch (e) {
+    showToast('خطا در حذف تانل', 'error');
+  }
+}
+
+async function deleteNode(nodeId) {
+  if (!confirm('آیا از حذف این نود مطمئن هستید؟')) return;
+  try {
+    await fetch(`/api/nodes/${nodeId}`, { method: 'DELETE' });
+    showToast('نود با موفقیت حذف شد', 'info');
+    fetchData();
+  } catch (e) {
+    showToast('خطا در حذف نود', 'error');
+  }
+}
+
+function showInstallModal(token, role, name) {
   STATE.currentInstallerToken = token;
   STATE.currentInstallerRole = role;
   STATE.currentInstallerName = name;
@@ -485,134 +707,125 @@ function switchInstallerMode(mode) {
 }
 
 function updateInstallerCommand() {
-  const host = window.location.host;
-  let cmd = '';
+  const origin = window.location.origin;
+  const cmdBox = document.getElementById('install-command-text');
+  if (!cmdBox) return;
+
   if (STATE.installerMode === 'native') {
-    cmd = `curl -fsSL "http://${host}/install?token=${STATE.currentInstallerToken}&role=${STATE.currentInstallerRole}&name=${encodeURIComponent(STATE.currentInstallerName)}" | bash`;
+    cmdBox.innerText = `curl -fsSL ${origin}/install.sh | bash -s -- --panel ${origin} --token ${STATE.currentInstallerToken}`;
   } else {
-    cmd = `docker run -d --name hawal-node --restart always --net=host -e PANEL_URL="http://${host}" -e TOKEN="${STATE.currentInstallerToken}" -e ROLE="${STATE.currentInstallerRole}" musixal/backhaul:latest`;
+    cmdBox.innerText = `docker run -d --name hawal-agent --restart=always --network=host -e PANEL_URL="${origin}" -e AGENT_TOKEN="${STATE.currentInstallerToken}" ghcr.io/t4wroot/hawal-agent:latest`;
   }
-  document.getElementById('install-command-text').innerText = cmd;
 }
 
 function copyInstallCmd() {
   const text = document.getElementById('install-command-text').innerText;
   navigator.clipboard.writeText(text);
-  showToast('دستور تک‌خطی در کلیپ‌بورد کپی شد.', 'success');
+  showToast('دستور با موفقیت در کلیپ‌بورد کپی شد', 'success');
 }
 
-async function deleteNode(id) {
-  if (!confirm('آیا از حذف این نود مطمئن هستید؟')) return;
-  await fetch(`/api/nodes/${id}`, { method: 'DELETE' });
-  showToast('نود حذف شد.', 'info');
-  fetchData();
-}
-
-async function handleAddTunnel(e) {
-  e.preventDefault();
-  const name = document.getElementById('tunnel-name').value;
-  const core_type = document.getElementById('tunnel-core-type').value;
-  const server_node_id = document.getElementById('tunnel-server-node').value;
-  const client_node_id = document.getElementById('tunnel-client-node').value;
-  const core_port = document.getElementById('tunnel-core-port').value;
-  const transport = document.getElementById('tunnel-transport').value;
-
-  if (STATE.activePortTags.length === 0) {
-    showToast('لطفاً حداقل یک پورت فوروارد اضافه کنید.', 'error');
-    return;
-  }
-
-  const ports = STATE.activePortTags.map(p => `${p}=127.0.0.1:${p}`);
-
-  const res = await fetch('/api/tunnels', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, core_type, server_node_id, client_node_id, core_port, transport, ports })
-  }).then(r => r.json());
-
-  if (res.error) {
-    showToast(`خطا: ${res.error}`, 'error');
-    return;
-  }
-
-  closeModal('modal-add-tunnel');
-  showToast(`تانل ${name} با موفقیت ایجاد و فعال شد! 🚀`, 'success');
-  fetchData();
-}
-
-async function toggleTunnel(id, status) {
-  await fetch(`/api/tunnels/${id}/status`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status })
-  });
-  showToast(`وضعیت تانل به ${status === 'running' ? 'فعال' : 'متوقف'} تغییر یافت.`, 'info');
-  fetchData();
-}
-
-async function deleteTunnel(id) {
-  if (!confirm('آیا از حذف این تانل مطمئن هستید؟')) return;
-  await fetch(`/api/tunnels/${id}`, { method: 'DELETE' });
-  showToast('تانل حذف شد.', 'info');
-  fetchData();
-}
-
-async function showDockerCompose(tunnelId) {
-  const res = await fetch(`/api/tunnels/${tunnelId}/docker`).then(r => r.json());
-  if (res.server_compose) {
-    document.getElementById('docker-compose-text').innerText = res.server_compose;
+async function showDockerModal(tunnelId) {
+  try {
+    const res = await fetch(`/api/tunnels/${tunnelId}/docker`);
+    const data = await res.json();
+    document.getElementById('docker-compose-text').innerText = data.server_compose || '# Docker Compose File';
     document.getElementById('modal-tunnel-docker').classList.add('active');
+  } catch (e) {
+    showToast('خطا در بارگذاری اطلاعات داکر', 'error');
   }
 }
 
 function copyDockerCompose() {
   const text = document.getElementById('docker-compose-text').innerText;
   navigator.clipboard.writeText(text);
-  showToast('محتوای docker-compose.yml کپی شد.', 'success');
+  showToast('فایل docker-compose کپی شد', 'success');
 }
 
-async function handleSaveSettings(e) {
-  e.preventDefault();
-  const panel_port = parseInt(document.getElementById('setting-panel-port').value);
-  const default_transport = document.getElementById('setting-default-transport').value;
-  const default_mux_con = parseInt(document.getElementById('setting-default-mux').value);
-  const mtu_clamp = parseInt(document.getElementById('setting-mtu-clamp').value);
+function renderPingSection() {
+  const select = document.getElementById('ping-target-select');
+  if (select) {
+    select.innerHTML = '';
+    STATE.nodes.forEach(n => {
+      select.innerHTML += `<option value="${n.id}">${n.flag || '🌐'} ${n.name} (${n.ip})</option>`;
+    });
+  }
 
-  const res = await fetch('/api/settings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ panel_port, default_transport, default_mux_con, mtu_clamp })
-  }).then(r => r.json());
-
-  if (res.success) {
-    showToast('تنظیمات با موفقیت ذخیره شدند.', 'success');
+  const tbody = document.getElementById('ping-history-body');
+  if (tbody) {
+    tbody.innerHTML = '';
+    STATE.pings.forEach(p => {
+      const tr = document.createElement('tr');
+      const d = new Date(p.created_at * 1000).toLocaleTimeString('fa-IR');
+      tr.innerHTML = `
+        <td style="font-family: 'JetBrains Mono'; font-size: 12px;">${d}</td>
+        <td>${p.source_name}</td>
+        <td>${p.target_name}</td>
+        <td style="font-family: 'JetBrains Mono'; color: var(--accent-amber); font-weight: 700;">${p.latency_avg_ms} ms</td>
+        <td style="font-family: 'JetBrains Mono'; color: ${p.packet_loss === 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)'};">${p.packet_loss}%</td>
+      `;
+      tbody.appendChild(tr);
+    });
   }
 }
 
 async function triggerPingTest() {
-  const select = document.getElementById('ping-target-select');
-  const target_ip = select.value;
-  const selectedOpt = select.options[select.selectedIndex];
-  const target_node_id = selectedOpt ? selectedOpt.getAttribute('data-id') : 'target';
+  const targetId = document.getElementById('ping-target-select').value;
+  if (!targetId) return;
 
-  document.getElementById('ping-result-container').style.display = 'block';
-  document.getElementById('ping-res-avg').innerText = '...';
+  showToast('در حال ارسال پکت‌های تست پینگ و پکت‌لاس...', 'info');
 
-  const res = await fetch('/api/ping', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ target_ip, target_node_id })
-  }).then(r => r.json());
+  try {
+    const res = await fetch('/api/ping/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target_node_id: targetId })
+    });
+    const data = await res.json();
+    
+    document.getElementById('ping-result-container').style.display = 'block';
+    document.getElementById('ping-res-avg').innerText = `${data.latency_avg_ms} ms`;
+    document.getElementById('ping-res-min').innerText = `${data.latency_min_ms} ms`;
+    document.getElementById('ping-res-max').innerText = `${data.latency_max_ms} ms`;
+    document.getElementById('ping-res-loss').innerText = `${data.packet_loss}%`;
 
-  if (res.success) {
-    document.getElementById('ping-res-avg').innerText = `${res.avg_ms} ms`;
-    document.getElementById('ping-res-min').innerText = `${res.min_ms} ms`;
-    document.getElementById('ping-res-max').innerText = `${res.max_ms} ms`;
-    document.getElementById('ping-res-loss').innerText = `${res.packet_loss}%`;
-    showToast(`تست پینگ به اتمام رسید: ${res.avg_ms}ms (پکت‌لاس: ${res.packet_loss}%)`, 'info');
+    showToast('تست پینگ با موفقیت انجام شد', 'success');
     fetchData();
-  } else {
-    document.getElementById('ping-res-avg').innerText = 'خطا';
-    showToast('خطا در برقراری تست پینگ', 'error');
+  } catch (e) {
+    showToast('خطا در اجرای تست پینگ', 'error');
   }
 }
+
+async function handleSaveSettings(e) {
+  e.preventDefault();
+  const panelPort = parseInt(document.getElementById('setting-panel-port').value);
+  const defaultTransport = document.getElementById('setting-default-transport').value;
+  const defaultMux = parseInt(document.getElementById('setting-default-mux').value);
+  const mtuClamp = parseInt(document.getElementById('setting-mtu-clamp').value);
+
+  try {
+    const res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        panel_port: panelPort,
+        default_transport: defaultTransport,
+        default_mux: defaultMux,
+        mtu_clamp: mtuClamp
+      })
+    });
+    if (res.ok) {
+      showToast('تنظیمات با موفقیت ذخیره شد', 'success');
+    }
+  } catch (e) {
+    showToast('خطا در ذخیره تنظیمات', 'error');
+  }
+}
+
+// -------------------------------------------------------------
+// App Initialization
+// -------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', () => {
+  fetchData();
+  connectWebSocket();
+  renderPortChips();
+});

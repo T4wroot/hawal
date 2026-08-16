@@ -227,6 +227,20 @@ def save_tunnel(tunnel_id, name, server_node_id, client_node_id, core_port, tran
         """, (tunnel_id, name, core_type, server_node_id, client_node_id, core_port, transport, ports_json, token, status, nodelay, snappy, mux_con, keepalive, channel_size, now))
         conn.commit()
 
+def update_tunnel(tunnel_id, name, core_port, transport, ports, core_type='hawal'):
+    ports_json = json.dumps(ports)
+    with get_db() as conn:
+        conn.execute("""
+        UPDATE tunnels SET
+            name = ?,
+            core_port = ?,
+            transport = ?,
+            ports_json = ?,
+            core_type = ?
+        WHERE id = ?
+        """, (name, int(core_port), transport, ports_json, core_type, tunnel_id))
+        conn.commit()
+
 def set_tunnel_status(tunnel_id, status):
     with get_db() as conn:
         conn.execute("UPDATE tunnels SET status = ? WHERE id = ?", (status, tunnel_id))

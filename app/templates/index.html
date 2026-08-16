@@ -18,7 +18,7 @@
         </div>
         <div>
           <div class="logo-text-title">Hawal Tunnel</div>
-          <div class="logo-text-sub">هه‌واڵ • نسخه ۱.۲ (Go Stealth Core)</div>
+          <div class="logo-text-sub">هه‌واڵ • شبکه هوشمند روزنه</div>
         </div>
       </div>
 
@@ -33,15 +33,15 @@
         </li>
         <li class="nav-item" onclick="switchTab('tunnels')">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-          تانل‌های هوشمند (Hawal & Backhaul)
+          مدیریت تانل‌ها و پورت‌ها
         </li>
         <li class="nav-item" onclick="switchTab('ping')">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-          سنجش کیفیت و پینگ
+          تست کیفیت و پینگ
         </li>
         <li class="nav-item" onclick="switchTab('settings')">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-          تنظیمات پنل و متغیرها
+          تنظیمات متغیرها
         </li>
       </ul>
     </aside>
@@ -57,9 +57,9 @@
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
             بروزرسانی زنده
           </button>
-          <button class="btn btn-primary btn-sm" onclick="openAddNodeModal()">
+          <button class="btn btn-primary btn-sm" onclick="openAddTunnelModal()">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-            افزودن نود جدید
+            + ساخت تانل جدید
           </button>
         </div>
       </header>
@@ -71,12 +71,12 @@
         <div id="tab-dashboard" class="tab-content">
           <div class="grid-stats">
             <div class="stat-card">
-              <div class="stat-icon-wrapper blue">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              <div class="stat-icon-wrapper gold">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
               </div>
               <div class="stat-info">
-                <span class="stat-label">تعداد کل نودها</span>
-                <span class="stat-value" id="stat-total-nodes">۰</span>
+                <span class="stat-label">تانل‌های فعال هه‌واڵ</span>
+                <span class="stat-value" id="stat-active-tunnels">۰</span>
               </div>
             </div>
             <div class="stat-card">
@@ -90,15 +90,15 @@
             </div>
             <div class="stat-card">
               <div class="stat-icon-wrapper cyan">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
               </div>
               <div class="stat-info">
-                <span class="stat-label">تانل‌های فعال هه‌واڵ</span>
-                <span class="stat-value" id="stat-active-tunnels">۰</span>
+                <span class="stat-label">تعداد کل نودها</span>
+                <span class="stat-value" id="stat-total-nodes">۰</span>
               </div>
             </div>
             <div class="stat-card">
-              <div class="stat-icon-wrapper purple">
+              <div class="stat-icon-wrapper blue">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
               </div>
               <div class="stat-info">
@@ -134,7 +134,7 @@
             <div class="section-header">
               <div class="section-title">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"></path></svg>
-                <span>وضعیت کارت‌های سرورها</span>
+                <span>وضعیت سرورها (نودهای متصل)</span>
               </div>
               <button class="btn btn-secondary btn-sm" onclick="switchTab('nodes')">مشاهده تمام نودها</button>
             </div>
@@ -184,7 +184,7 @@
             <div class="section-header">
               <div class="section-title">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                <span>تانل‌های فعال هه‌واڵ و بکهول</span>
+                <span>مدیریت تانل‌های فعال و پورت‌ها</span>
               </div>
               <button class="btn btn-primary btn-sm" onclick="openAddTunnelModal()">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
@@ -199,8 +199,8 @@
                     <th>سرور مبدا (ایران)</th>
                     <th>سرور مقصد (خارج)</th>
                     <th>پورت ترانسپورت (Core)</th>
-                    <th>پروتکل</th>
                     <th>پورت‌های فوروارد شده</th>
+                    <th>تست سلامت و پینگ</th>
                     <th>وضعیت</th>
                     <th>عملیات</th>
                   </tr>
@@ -237,7 +237,7 @@
               <div class="topology-box" style="justify-content: space-around;">
                 <div style="text-align: center;">
                   <div class="stat-label">میانگین تاخیر (Avg RTT)</div>
-                  <div id="ping-res-avg" style="font-size: 26px; font-weight: 900; color: var(--accent-cyan); font-family: 'JetBrains Mono';">-</div>
+                  <div id="ping-res-avg" style="font-size: 26px; font-weight: 900; color: var(--accent-amber); font-family: 'JetBrains Mono';">-</div>
                 </div>
                 <div style="text-align: center;">
                   <div class="stat-label">کمترین تاخیر (Min)</div>
@@ -367,7 +367,6 @@
         <button class="modal-close" onclick="closeModal('modal-install-code')">&times;</button>
       </div>
       
-      <!-- Installer Type Tabs -->
       <div style="display: flex; gap: 8px; margin-bottom: 14px;">
         <button class="btn btn-primary btn-sm" id="btn-mode-native" onclick="switchInstallerMode('native')">🚀 دستور مستقیم (Systemd)</button>
         <button class="btn btn-secondary btn-sm" id="btn-mode-docker" onclick="switchInstallerMode('docker')">🐳 دستور داکر (Docker Container)</button>
@@ -386,7 +385,7 @@
     </div>
   </div>
 
-  <!-- MODAL: ADD TUNNEL (UPGRADED UI & ERGONOMIC CARDS) -->
+  <!-- MODAL: ADD TUNNEL -->
   <div class="modal-overlay" id="modal-add-tunnel">
     <div class="modal" style="max-width: 660px;">
       <div class="modal-header">
@@ -403,14 +402,13 @@
           <input type="text" id="tunnel-name" class="form-control" placeholder="مثلاً: Iran-Germany Master Tunnel" required>
         </div>
 
-        <!-- Segmented Visual Engine Cards -->
         <div class="form-group">
           <label>انتخاب موتور و هسته تانل (Tunnel Engine):</label>
           <div class="engine-selector-grid">
             <div class="engine-card active" id="card-engine-hawal" onclick="selectEngine('hawal')">
               <div class="engine-card-header">
-                <span class="engine-title" style="color: var(--accent-emerald);">⚡ Hawal Stealth Core</span>
-                <span style="font-size: 11px; background: rgba(16,185,129,0.2); color:#34d399; padding:2px 6px; border-radius:4px;">پیشنهادی</span>
+                <span class="engine-title" style="color: var(--accent-amber);">⚡ Hawal Stealth Core</span>
+                <span style="font-size: 11px; background: rgba(245,158,11,0.2); color:#fde68a; padding:2px 6px; border-radius:4px;">پیشنهادی</span>
               </div>
               <span class="engine-desc">نوشته‌شده با Go • پدینگ نویز ضد فیلترینگ • بدون افت آپلود • تاخیر ۰.۲ms</span>
             </div>
@@ -450,12 +448,9 @@
           </div>
         </div>
 
-        <!-- Interactive Port Tag Selector -->
         <div class="form-group">
           <label>پورت‌های فوروارد شده (Forwarded Ports):</label>
-          <div class="port-chip-container" id="port-chip-list">
-            <!-- Chips inserted dynamically -->
-          </div>
+          <div class="port-chip-container" id="port-chip-list"></div>
 
           <div style="display: flex; gap: 8px; margin-top: 8px;">
             <input type="number" id="custom-port-input" class="form-control" placeholder="شماره پورت دلخواه (مثلاً: 443 یا 8080)" onkeydown="if(event.key==='Enter'){event.preventDefault();addPortChip(this.value);this.value='';}">
@@ -482,6 +477,72 @@
     </div>
   </div>
 
+  <!-- MODAL: EDIT TUNNEL (EDIT PORTS & SETTINGS DYNAMICALLY) -->
+  <div class="modal-overlay" id="modal-edit-tunnel">
+    <div class="modal" style="max-width: 660px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+          ویرایش و تغییر پورت‌های تانل
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-edit-tunnel')">&times;</button>
+      </div>
+      <form id="form-edit-tunnel" onsubmit="handleSaveEditTunnel(event)">
+        <input type="hidden" id="edit-tunnel-id">
+
+        <div class="form-group">
+          <label>نام تانل:</label>
+          <input type="text" id="edit-tunnel-name" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+          <label>موتور و هسته تانل (Engine Core):</label>
+          <select id="edit-tunnel-core-type" class="form-control" onchange="handleEditCoreTypeChange()">
+            <option value="hawal">⚡ هسته اختصاصی هه‌واڵ (Hawal Stealth Core - Go)</option>
+            <option value="backhaul">🚀 هسته بکهول (Backhaul Multiplex)</option>
+          </select>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div class="form-group">
+            <label>پورت ترانسپورت هسته (Core Port):</label>
+            <input type="number" id="edit-tunnel-core-port" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>پروتکل ترانسپورت:</label>
+            <select id="edit-tunnel-transport" class="form-control"></select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>پورت‌های فوروارد شده (اضافه یا حذف پورت):</label>
+          <div class="port-chip-container" id="edit-port-chip-list"></div>
+
+          <div style="display: flex; gap: 8px; margin-top: 8px;">
+            <input type="number" id="edit-custom-port-input" class="form-control" placeholder="شماره پورت دلخواه (مثلاً: 443 یا 8080)" onkeydown="if(event.key==='Enter'){event.preventDefault();addEditPortChip(this.value);this.value='';}">
+            <button type="button" class="btn btn-secondary" onclick="addEditPortChip(document.getElementById('edit-custom-port-input').value); document.getElementById('edit-custom-port-input').value='';" style="white-space: nowrap;">
+              + افزودن پورت
+            </button>
+          </div>
+
+          <div class="preset-chip-list">
+            <span style="font-size: 11px; color: var(--text-muted); align-self: center;">پورت‌های پرکاربرد:</span>
+            <span class="preset-chip" onclick="addEditPortChip(443)">+ 443 (Reality)</span>
+            <span class="preset-chip" onclick="addEditPortChip(2083)">+ 2083 (MTProto)</span>
+            <span class="preset-chip" onclick="addEditPortChip(8080)">+ 8080 (V2Ray/WS)</span>
+            <span class="preset-chip" onclick="addEditPortChip(8443)">+ 8443 (Xray Core)</span>
+            <span class="preset-chip" onclick="addEditPortChip(80)">+ 80 (HTTP)</span>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-edit-tunnel')">انصراف</button>
+          <button type="submit" class="btn btn-primary">ذخیره و اعمال تغییرات</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- MODAL: DOCKER COMPOSE VIEWER -->
   <div class="modal-overlay" id="modal-tunnel-docker">
     <div class="modal" style="max-width: 650px;">
@@ -496,7 +557,7 @@
         می‌توانید این فایل docker-compose.yml را برای اجرای کانتینری این تانل استفاده کنید:
       </p>
       <div class="cmd-box" style="margin-bottom: 14px;">
-        <pre id="docker-compose-text" style="color: #38bdf8; font-size: 12px; max-height: 200px; overflow-y: auto;"></pre>
+        <pre id="docker-compose-text" style="color: #fbbf24; font-size: 12px; max-height: 200px; overflow-y: auto;"></pre>
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 10px;">
         <button class="btn btn-primary btn-sm" onclick="copyDockerCompose()">کپی docker-compose.yml</button>
