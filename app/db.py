@@ -259,6 +259,16 @@ def update_tunnel_traffic(tunnel_id, bytes_in, bytes_out):
         """, (int(bytes_in), int(bytes_out), tunnel_id))
         conn.commit()
 
+def set_tunnel_absolute_traffic(tunnel_id, bytes_in, bytes_out):
+    with get_db() as conn:
+        conn.execute("""
+        UPDATE tunnels SET
+            bytes_in = ?,
+            bytes_out = ?
+        WHERE id = ?
+        """, (int(bytes_in), int(bytes_out), tunnel_id))
+        conn.commit()
+
 def set_tunnel_status(tunnel_id, status):
     with get_db() as conn:
         conn.execute("UPDATE tunnels SET status = ? WHERE id = ?", (status, tunnel_id))

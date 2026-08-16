@@ -6,13 +6,15 @@ import mimetypes
 import os
 import secrets
 import time
+import re
 import socket
 import urllib.parse
 from app.config import DEFAULT_HOST, DEFAULT_PORT, MASTER_TOKEN
 from app.db import (
     init_db, list_nodes, get_node, get_node_by_token, save_node, delete_node,
     update_node_heartbeat, list_tunnels, get_tunnel, update_tunnel, save_tunnel,
-    set_tunnel_status, delete_tunnel, record_ping, get_latest_pings
+    set_tunnel_status, delete_tunnel, record_ping, get_latest_pings,
+    set_tunnel_absolute_traffic
 )
 from app.backhaul import validate_tunnel_ports, generate_server_config, generate_client_config
 from app.ping_tool import run_ping, run_tcp_ping
@@ -77,6 +79,74 @@ class HTTPServer:
         self.server = await asyncio.start_server(self.handle_client, self.host, self.port)
         print(f"🚀 NexusTunnel Control Panel is listening at http://{self.host}:{self.port}")
         print(f"🔑 Master Admin Token: {MASTER_TOKEN}")
+        asyncio.create_task(self.background_traffic_collector())
+
+    async def background_traffic_collector(self):
+        # Background task that polls kernel socket stats (ss -ti) every 3 seconds
+        while True:
+            try:
+                await asyncio.sleep(3)
+                tunnels = list_tunnels()
+                changed = False
+                for tun in tunnels:
+                    tun_id = tun["id"]
+                    ports = tun.get("ports", [])
+                    core_port = tun.get("core_port")
+                    
+                    port_list = []
+                    for r in ports:
+                        rule_str = str(r).strip()
+                        left = rule_str.split("=")[0].strip()
+                        if ":" in left:
+                            left = left.split(":")[-1]
+                        try:
+                            p = int(left)
+                            if 1 <= p <= 65535:
+                                port_list.append(p)
+                        except:
+                            pass
+                    if core_port:
+                        try:
+                            port_list.append(int(core_port))
+                        except:
+                            pass
+                    
+                    if not port_list:
+                        continue
+                    
+                    conds = " or ".join([f"sport = :{p} or dport = :{p}" for p in set(port_list)])
+                    cmd = f"ss -ti '{conds}'"
+                    try:
+                        proc = await asyncio.create_subprocess_shell(
+                            cmd,
+                            stdout=asyncio.subprocess.PIPE,
+                            stderr=asyncio.subprocess.PIPE
+                        )
+                        stdout, _ = await proc.communicate()
+                        out = stdout.decode('utf-8', errors='ignore')
+                        
+                        bytes_sent_list = [int(x) for x in re.findall(r'bytes_sent:(\d+)', out)]
+                        bytes_rcvd_list = [int(x) for x in re.findall(r'bytes_received:(\d+)', out)]
+                        
+                        cur_rcvd = sum(bytes_rcvd_list)
+                        cur_sent = sum(bytes_sent_list)
+                        
+                        prev_in = tun.get("bytes_in", 0) or 0
+                        prev_out = tun.get("bytes_out", 0) or 0
+                        
+                        new_in = max(prev_in, cur_rcvd)
+                        new_out = max(prev_out, cur_sent)
+                        
+                        if new_in != prev_in or new_out != prev_out:
+                            set_tunnel_absolute_traffic(tun_id, new_in, new_out)
+                            changed = True
+                    except Exception:
+                        pass
+                
+                if changed:
+                    await broadcast_ws({"event": "tunnel_updated"})
+            except Exception:
+                await asyncio.sleep(4)
 
     async def handle_client(self, reader, writer):
         try:
