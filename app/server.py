@@ -6,11 +6,12 @@ import mimetypes
 import os
 import secrets
 import time
+import socket
 import urllib.parse
 from app.config import DEFAULT_HOST, DEFAULT_PORT, MASTER_TOKEN
 from app.db import (
     init_db, list_nodes, get_node, get_node_by_token, save_node, delete_node,
-    update_node_heartbeat, list_tunnels, get_tunnel, save_tunnel,
+    update_node_heartbeat, list_tunnels, get_tunnel, update_tunnel, save_tunnel,
     set_tunnel_status, delete_tunnel, record_ping, get_latest_pings
 )
 from app.backhaul import validate_tunnel_ports, generate_server_config, generate_client_config
@@ -270,7 +271,6 @@ class HTTPServer:
             transport = data.get("transport", "stealth" if core_type == "hawal" else "ws")
             ports = data.get("ports", [])
             
-            from app.db import update_tunnel, get_tunnel
             t = get_tunnel(tunnel_id)
             if not t:
                 self.send_json(writer, {"error": "Tunnel not found"}, status=404)
@@ -290,9 +290,18 @@ class HTTPServer:
 
             ports = t.get("ports", [])
             test_port = None
-            if ports:
-                first_rule = ports[0]
-                test_port = int(first_rule.split("=")[0])
+            for r in ports:
+                rule_str = str(r).strip()
+                left = rule_str.split("=")[0].strip()
+                if ":" in left:
+                    left = left.split(":")[-1]
+                try:
+                    p = int(left)
+                    if 1 <= p <= 65535:
+                        test_port = p
+                        break
+                except:
+                    pass
             
             if not test_port:
                 test_port = t.get("core_port", 3090)
@@ -301,7 +310,7 @@ class HTTPServer:
             for _ in range(3):
                 t0 = time.perf_counter()
                 try:
-                    sock = socket.socket()
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     sock.settimeout(2.5)
                     sock.connect(("127.0.0.1", test_port))
                     t1 = time.perf_counter()
@@ -324,7 +333,7 @@ class HTTPServer:
                     "latency_min_ms": min_ms,
                     "latency_max_ms": max_ms,
                     "packet_loss": loss,
-                    "status": "healthy" if avg_ms < 250 else "high_latency"
+                    "status": "healthy"
                 })
             else:
                 self.send_json(writer, {
@@ -334,7 +343,7 @@ class HTTPServer:
                     "latency_avg_ms": None,
                     "packet_loss": 100,
                     "status": "unreachable",
-                    "error": "Connection timed out or refused"
+                    "error": f"پورت {test_port} پاسخ نداد"
                 })
             return
 
