@@ -159,6 +159,9 @@ class HawalAgent:
             core_type = item.get("core_type", "hawal")
             active_ids.add(tun_id)
 
+            proc = self.running_processes.get(tun_id)
+            is_running = proc is not None and proc.poll() is None
+
             if core_type == "hawal":
                 if not self.ensure_hawal_core_binary():
                     continue
@@ -166,7 +169,7 @@ class HawalAgent:
                 cfg_path = f"{CONFIG_DIR}/{tun_id}.json"
                 cfg_content = json.dumps(item["config"], indent=2)
                 
-                if self.running_configs.get(tun_id) != cfg_content or tun_id not in self.running_processes:
+                if not is_running or self.running_configs.get(tun_id) != cfg_content:
                     with open(cfg_path, "w") as f:
                         f.write(cfg_content)
                     self.restart_tunnel_process(tun_id, [HAWAL_CORE_BIN, "-config", cfg_path], cfg_content)
@@ -175,7 +178,7 @@ class HawalAgent:
                 self.ensure_backhaul_binary()
                 cfg_path = f"{CONFIG_DIR}/{tun_id}.toml"
                 toml_content = item.get("toml", "")
-                if self.running_configs.get(tun_id) != toml_content or tun_id not in self.running_processes:
+                if not is_running or self.running_configs.get(tun_id) != toml_content:
                     with open(cfg_path, "w") as f:
                         f.write(toml_content)
                     self.restart_tunnel_process(tun_id, [BACKHAUL_BIN, "-c", cfg_path], toml_content)
@@ -207,11 +210,60 @@ class HawalAgent:
             del self.running_processes[tun_id]
             self.running_configs.pop(tun_id, None)
 
+    def track_and_report_traffic(self):
+        reports = []
+        for tun_id, proc in list(self.running_processes.items()):
+            if proc.poll() is None:
+                pid = proc.pid
+                io_path = f"/proc/{pid}/io"
+                try:
+                    if os.path.exists(io_path):
+                        with open(io_path, "r") as f:
+                            lines = f.readlines()
+                        r_bytes = 0
+                        w_bytes = 0
+                        for l in lines:
+                            if l.startswith("read_bytes:"):
+                                r_bytes = int(l.split(":")[1].strip())
+                            elif l.startswith("write_bytes:"):
+                                w_bytes = int(l.split(":")[1].strip())
+                            elif l.startswith("rchar:") and r_bytes == 0:
+                                r_bytes = int(l.split(":")[1].strip())
+                            elif l.startswith("wchar:") and w_bytes == 0:
+                                w_bytes = int(l.split(":")[1].strip())
+                        
+                        last_r, last_w = getattr(self, "_last_io", {}).get(tun_id, (r_bytes, w_bytes))
+                        if not hasattr(self, "_last_io"):
+                            self._last_io = {}
+                        self._last_io[tun_id] = (r_bytes, w_bytes)
+
+                        delta_in = max(0, r_bytes - last_r)
+                        delta_out = max(0, w_bytes - last_w)
+                        if delta_in > 0 or delta_out > 0:
+                            reports.append({"tunnel_id": tun_id, "bytes_in": delta_in, "bytes_out": delta_out})
+                except Exception:
+                    pass
+
+        if reports:
+            try:
+                url = f"{self.panel_url}/api/tunnels/traffic"
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps({"reports": reports}).encode('utf-8'),
+                    headers={"Content-Type": "application/json", "Authorization": f"Bearer {self.token}"},
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=4) as _:
+                    pass
+            except Exception:
+                pass
+
     def run(self):
         print(f"🚀 Hawal Agent started ({self.node_name} - {self.role}). Syncing with {self.panel_url}...")
         while True:
             self.send_heartbeat()
             self.sync_tunnels()
+            self.track_and_report_traffic()
             time.sleep(4)
 
 if __name__ == "__main__":

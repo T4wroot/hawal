@@ -251,15 +251,29 @@ async function fetchData() {
   }
 }
 
+function formatBytes(bytes) {
+  if (!bytes || bytes <= 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
 function renderDashboard() {
   const totalNodesEl = document.getElementById('stat-total-nodes');
   const onlineNodesEl = document.getElementById('stat-online-nodes');
   const activeTunnelsEl = document.getElementById('stat-active-tunnels');
   const avgLatencyEl = document.getElementById('stat-avg-latency');
+  const totalTrafficEl = document.getElementById('stat-total-traffic');
 
-  if (totalNodesEl) totalNodesEl.innerText = STATE.nodes.length;
-  if (onlineNodesEl) onlineNodesEl.innerText = STATE.nodes.filter(n => n.status === 'online').length;
+  const onlineCount = STATE.nodes.filter(n => n.status === 'online').length;
+  if (onlineNodesEl) onlineNodesEl.innerText = `${onlineCount} / ${STATE.nodes.length}`;
   if (activeTunnelsEl) activeTunnelsEl.innerText = STATE.tunnels.filter(t => t.status === 'running').length;
+
+  const totalIn = STATE.tunnels.reduce((acc, t) => acc + (t.bytes_in || 0), 0);
+  const totalOut = STATE.tunnels.reduce((acc, t) => acc + (t.bytes_out || 0), 0);
+  const totalNetworkTraffic = totalIn + totalOut;
+  if (totalTrafficEl) totalTrafficEl.innerText = formatBytes(totalNetworkTraffic);
 
   if (avgLatencyEl) {
     if (STATE.pings.length > 0) {
@@ -271,7 +285,74 @@ function renderDashboard() {
   }
 
   renderTopology();
+  renderDashboardTrafficWidgets(totalNetworkTraffic);
   renderDashboardNodeCards();
+}
+
+function renderDashboardTrafficWidgets(totalBytes) {
+  const container = document.getElementById('dashboard-traffic-widgets');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (STATE.tunnels.length === 0) {
+    container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px;">هیچ تانلی ایجاد نشده است.</div>';
+    return;
+  }
+
+  STATE.tunnels.forEach(tun => {
+    const card = document.createElement('div');
+    card.className = 'stat-card';
+    card.style.flexDirection = 'column';
+    card.style.alignItems = 'stretch';
+    card.style.gap = '14px';
+
+    const bIn = tun.bytes_in || 0;
+    const bOut = tun.bytes_out || 0;
+    const tTotal = bIn + bOut;
+    const pct = totalBytes > 0 ? Math.min(100, Math.round((tTotal / totalBytes) * 100)) : 0;
+    const isHawal = tun.core_type === 'hawal';
+
+    card.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 18px;">${isHawal ? '⚡' : '🚀'}</span>
+          <div>
+            <div style="font-weight: 800; font-size: 14px;">${tun.name}</div>
+            <div style="font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono';">پورت ${tun.core_port}</div>
+          </div>
+        </div>
+        <span class="badge badge-tag" style="color: var(--accent-amber); font-weight: 800;">
+          ${formatBytes(tTotal)}
+        </span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;">
+        <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 8px; border: var(--border-hairline);">
+          <div style="color: var(--text-muted);">📥 دانلود (In):</div>
+          <div style="font-family: 'JetBrains Mono'; font-weight: 700; color: #34d399; margin-top: 2px;">
+            ${formatBytes(bIn)}
+          </div>
+        </div>
+        <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 8px; border: var(--border-hairline);">
+          <div style="color: var(--text-muted);">📤 آپلود (Out):</div>
+          <div style="font-family: 'JetBrains Mono'; font-weight: 700; color: #38bdf8; margin-top: 2px;">
+            ${formatBytes(bOut)}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">
+          <span>سهم از کل ترافیک:</span>
+          <span style="font-family: 'JetBrains Mono';">${pct}%</span>
+        </div>
+        <div style="background: rgba(255,255,255,0.06); height: 4px; border-radius: 2px; overflow: hidden;">
+          <div style="width: ${pct}%; background: linear-gradient(90deg, var(--accent-flame), var(--accent-amber)); height: 100%;"></div>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
 }
 
 function renderTopology() {
@@ -424,6 +505,8 @@ function renderTunnels() {
     const tr = document.createElement('tr');
     const isHawal = tun.core_type === 'hawal';
     const isRunning = tun.status === 'running';
+    const bIn = tun.bytes_in || 0;
+    const bOut = tun.bytes_out || 0;
 
     let portsBadges = '';
     (tun.ports || []).forEach(p => {
@@ -436,7 +519,7 @@ function renderTunnels() {
       if (testRes.loading) {
         testBadgeHtml = '<span class="badge" style="background:rgba(245,158,11,0.2); color:#fde68a;">در حال تست... ⏳</span>';
       } else if (testRes.success) {
-        testBadgeHtml = `<span class="badge badge-online">🟢 ${testRes.latency_avg_ms}ms • 0% Loss</span>`;
+        testBadgeHtml = `<span class="badge badge-online">🟢 ${testRes.latency_avg_ms}ms • ${testRes.packet_loss}% Loss</span>`;
       } else {
         testBadgeHtml = '<span class="badge badge-offline">🔴 عدم اتصال</span>';
       }
@@ -455,6 +538,12 @@ function renderTunnels() {
       <td style="font-family: 'JetBrains Mono'; font-size: 13px;">${tun.client_name || 'Germany Node'}</td>
       <td style="font-family: 'JetBrains Mono'; color: var(--accent-amber); font-weight: 700;">${tun.core_port}</td>
       <td>${portsBadges}</td>
+      <td>
+        <div style="font-family: 'JetBrains Mono'; font-size: 12px; display: flex; flex-direction: column; gap: 2px;">
+          <span style="color: #34d399;">📥 ${formatBytes(bIn)}</span>
+          <span style="color: #38bdf8;">📤 ${formatBytes(bOut)}</span>
+        </div>
+      </td>
       <td>
         <div id="test-col-${tun.id}">${testBadgeHtml}</div>
       </td>

@@ -78,6 +78,14 @@ def init_db():
         except:
             pass
         try:
+            cursor.execute("ALTER TABLE tunnels ADD COLUMN bytes_in INTEGER DEFAULT 0")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE tunnels ADD COLUMN bytes_out INTEGER DEFAULT 0")
+        except:
+            pass
+        try:
             cursor.execute("ALTER TABLE nodes ADD COLUMN country_code TEXT DEFAULT 'GLOBAL'")
             cursor.execute("ALTER TABLE nodes ADD COLUMN country_name TEXT DEFAULT 'خارج'")
             cursor.execute("ALTER TABLE nodes ADD COLUMN flag TEXT DEFAULT '🌐'")
@@ -239,6 +247,16 @@ def update_tunnel(tunnel_id, name, core_port, transport, ports, core_type='hawal
             core_type = ?
         WHERE id = ?
         """, (name, int(core_port), transport, ports_json, core_type, tunnel_id))
+        conn.commit()
+
+def update_tunnel_traffic(tunnel_id, bytes_in, bytes_out):
+    with get_db() as conn:
+        conn.execute("""
+        UPDATE tunnels SET
+            bytes_in = bytes_in + ?,
+            bytes_out = bytes_out + ?
+        WHERE id = ?
+        """, (int(bytes_in), int(bytes_out), tunnel_id))
         conn.commit()
 
 def set_tunnel_status(tunnel_id, status):

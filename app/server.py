@@ -281,6 +281,14 @@ class HTTPServer:
             await broadcast_ws({"event": "tunnel_updated"})
             return
 
+        if method == "POST" and path == "/api/tunnels/traffic":
+            data = json.loads(body.decode('utf-8'))
+            from app.db import update_tunnel_traffic
+            for rep in data.get("reports", []):
+                update_tunnel_traffic(rep.get("tunnel_id"), rep.get("bytes_in", 0), rep.get("bytes_out", 0))
+            self.send_json(writer, {"success": True})
+            return
+
         if method == "POST" and "/api/tunnels/" in path and path.endswith("/test"):
             tunnel_id = path.split("/")[3]
             t = get_tunnel(tunnel_id)
@@ -288,6 +296,10 @@ class HTTPServer:
                 self.send_json(writer, {"error": "Tunnel not found"}, status=404)
                 return
 
+            client_node = get_node(t.get("client_node_id"))
+            target_ip = client_node["ip"] if client_node else "167.172.102.14"
+
+            # Parse forwarded port
             ports = t.get("ports", [])
             test_port = None
             for r in ports:
@@ -306,44 +318,65 @@ class HTTPServer:
             if not test_port:
                 test_port = t.get("core_port", 3090)
 
+            # 1. Verify local forward port is active
+            local_ok = False
+            try:
+                lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                lsock.settimeout(1.0)
+                lsock.connect(("127.0.0.1", test_port))
+                lsock.close()
+                local_ok = True
+            except:
+                pass
+
+            # 2. Measure actual inter-server network RTT (Iran -> Germany)
             latencies = []
-            for _ in range(3):
+            probe_ports = [7443, int(t.get("core_port", 3090)), 22, 80]
+            
+            for _ in range(4):
                 t0 = time.perf_counter()
-                try:
-                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    sock.settimeout(2.5)
-                    sock.connect(("127.0.0.1", test_port))
-                    t1 = time.perf_counter()
-                    latencies.append((t1 - t0) * 1000)
-                    sock.close()
-                except Exception as e:
-                    pass
-                time.sleep(0.05)
+                connected = False
+                for p in probe_ports:
+                    try:
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        sock.settimeout(2.5)
+                        sock.connect((target_ip, p))
+                        t1 = time.perf_counter()
+                        latencies.append((t1 - t0) * 1000)
+                        sock.close()
+                        connected = True
+                        break
+                    except:
+                        continue
+                time.sleep(0.04)
 
             if latencies:
                 avg_ms = round(sum(latencies) / len(latencies), 1)
                 min_ms = round(min(latencies), 1)
                 max_ms = round(max(latencies), 1)
-                loss = round((3 - len(latencies)) / 3 * 100)
+                loss = round((4 - len(latencies)) / 4 * 100)
                 self.send_json(writer, {
                     "success": True,
                     "tunnel_id": tunnel_id,
                     "tested_port": test_port,
+                    "target_ip": target_ip,
                     "latency_avg_ms": avg_ms,
                     "latency_min_ms": min_ms,
                     "latency_max_ms": max_ms,
                     "packet_loss": loss,
-                    "status": "healthy"
+                    "local_port_active": local_ok,
+                    "status": "healthy" if avg_ms < 250 else "high_latency"
                 })
             else:
                 self.send_json(writer, {
                     "success": False,
                     "tunnel_id": tunnel_id,
                     "tested_port": test_port,
+                    "target_ip": target_ip,
                     "latency_avg_ms": None,
                     "packet_loss": 100,
                     "status": "unreachable",
-                    "error": f"پورت {test_port} پاسخ نداد"
+                    "error": f"سرور مقصد ({target_ip}) پاسخ نداد"
                 })
             return
 
