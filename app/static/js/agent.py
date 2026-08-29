@@ -17,8 +17,10 @@ import shutil
 HAWAL_DIR = "/opt/hawal"
 BIN_DIR = f"{HAWAL_DIR}/bin"
 CONFIG_DIR = f"{HAWAL_DIR}/tunnels"
+LOG_DIR = f"{HAWAL_DIR}/logs"
 HAWAL_CORE_BIN = f"{BIN_DIR}/hawal-core"
 BACKHAUL_BIN = f"{BIN_DIR}/backhaul"
+PAQET_BIN = f"{BIN_DIR}/paqet"
 AGENT_JSON_PATH = "/etc/hawal/agent.json"
 
 class HawalAgent:
@@ -29,9 +31,12 @@ class HawalAgent:
         self.node_name = node_name
         self.running_processes = {} # {tunnel_id: subprocess.Popen}
         self.running_configs = {}   # {tunnel_id: hash}
+        self.running_metadata = {}  # {tunnel_id: runtime details used for cleanup}
+        self.shutdown_requested = False
 
         os.makedirs(BIN_DIR, exist_ok=True)
         os.makedirs(CONFIG_DIR, exist_ok=True)
+        os.makedirs(LOG_DIR, exist_ok=True)
 
     def get_system_metrics(self):
         metrics = {
@@ -118,6 +123,145 @@ class HawalAgent:
             pass
         return True
 
+    def ensure_paqet_binary(self):
+        if os.path.exists(PAQET_BIN) and os.path.isfile(PAQET_BIN) and os.access(PAQET_BIN, os.X_OK):
+            return True
+
+        print(f"[Agent] 📥 Installing Paqet binary...")
+        try:
+            local_static_bin = "/opt/hawal-panel/app/static/bin/paqet"
+            if os.path.exists(local_static_bin) and os.path.isfile(local_static_bin):
+                shutil.copy(local_static_bin, PAQET_BIN)
+                os.chmod(PAQET_BIN, 0o755)
+                print("[Agent] ✅ Paqet binary installed from local panel.")
+                return True
+
+            import platform
+            machine = platform.machine().lower()
+            if machine in ("x86_64", "amd64"):
+                arch = "amd64"
+            elif "arm64" in machine or "aarch64" in machine:
+                arch = "arm64"
+            elif "arm" in machine:
+                arch = "arm32"
+            else:
+                raise RuntimeError(f"unsupported CPU architecture: {machine}")
+
+            try:
+                subprocess.run(["apt-get", "install", "-y", "libpcap0.8"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
+            except:
+                pass
+
+            import tarfile, io
+            url = f"https://github.com/hanselime/paqet/releases/download/v1.0.0-alpha.21/paqet-linux-{arch}-v1.0.0-alpha.21.tar.gz"
+            req = urllib.request.Request(url, headers={"User-Agent": "Hawal-Agent"})
+            with urllib.request.urlopen(req, timeout=35) as resp:
+                tar_bytes = io.BytesIO(resp.read())
+                with tarfile.open(fileobj=tar_bytes, mode="r:gz") as tar:
+                    for member in tar.getmembers():
+                        if member.isfile() and os.path.basename(member.name) in ("paqet", f"paqet_linux_{arch}"):
+                            f = tar.extractfile(member)
+                            if f:
+                                temp_bin = f"{PAQET_BIN}.download"
+                                with open(temp_bin, "wb") as out:
+                                    out.write(f.read())
+                                os.chmod(temp_bin, 0o755)
+                                os.replace(temp_bin, PAQET_BIN)
+                                print(f"[Agent] ✅ Paqet ({arch}) binary installed successfully.")
+                                return True
+        except Exception as e:
+            print(f"[Agent] ❌ Failed to install Paqet binary: {e}")
+            return False
+        return os.path.exists(PAQET_BIN)
+
+    def get_network_info(self):
+        iface = ""
+        local_ip = ""
+        gateway_ip = ""
+        gateway_mac = ""
+        try:
+            res = subprocess.check_output(["ip", "route"], stderr=subprocess.DEVNULL).decode('utf-8')
+            for line in res.splitlines():
+                if "default" in line and "dev" in line:
+                    parts = line.split()
+                    if "dev" in parts:
+                        iface = parts[parts.index("dev") + 1]
+                    if "via" in parts:
+                        gateway_ip = parts[parts.index("via") + 1]
+                    break
+        except:
+            pass
+        try:
+            res = subprocess.check_output(["ip", "-4", "addr", "show", iface], stderr=subprocess.DEVNULL).decode('utf-8')
+            import re
+            m = re.search(r'inet\s+(\d+\.\d+\.\d+\.\d+)', res)
+            if m:
+                local_ip = m.group(1)
+        except:
+            pass
+        try:
+            if gateway_ip:
+                subprocess.run(["ping", "-c", "1", "-W", "1", gateway_ip], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                res = subprocess.check_output(["ip", "neigh", "show", gateway_ip], stderr=subprocess.DEVNULL).decode('utf-8')
+                import re
+                m = re.search(r'([0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5})', res)
+                if m:
+                    gateway_mac = m.group(1)
+        except:
+            pass
+        return iface, local_ip, gateway_mac
+
+    def _iptables_rule(self, action, table, chain, rule):
+        return subprocess.run(
+            ["iptables", "-t", table, action, chain] + rule,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        ).returncode == 0
+
+    def configure_paqet_iptables(self, role, core_port, ports=None):
+        if role == "server":
+            rules = [
+                ("raw", "PREROUTING", ["-p", "tcp", "--dport", str(core_port), "-j", "NOTRACK"]),
+                ("raw", "OUTPUT", ["-p", "tcp", "--sport", str(core_port), "-j", "NOTRACK"]),
+                ("mangle", "OUTPUT", ["-p", "tcp", "--sport", str(core_port), "--tcp-flags", "RST", "RST", "-j", "DROP"]),
+            ]
+        else:
+            rules = [("raw", "OUTPUT", ["-p", "tcp", "--dport", str(core_port), "-j", "NOTRACK"])]
+            for port in ports or []:
+                listen_port = str(port).split("=", 1)[0].split(":", 1)[0].strip()
+                if listen_port.isdigit():
+                    rules.append(("raw", "PREROUTING", ["-p", "tcp", "--dport", listen_port, "-j", "NOTRACK"]))
+        try:
+            for table, chain, rule in rules:
+                if not self._iptables_rule("-C", table, chain, rule):
+                    if not self._iptables_rule("-A", table, chain, rule):
+                        raise RuntimeError(f"could not add iptables {table}/{chain} rule")
+            return True
+        except Exception as e:
+            print(f"[Agent] ❌ Failed to configure iptables for Paqet: {e}")
+            self.cleanup_paqet_iptables(role, core_port, ports)
+            return False
+
+    def cleanup_paqet_iptables(self, role, core_port, ports=None):
+        if role == "server":
+            rules = [
+                ("raw", "PREROUTING", ["-p", "tcp", "--dport", str(core_port), "-j", "NOTRACK"]),
+                ("raw", "OUTPUT", ["-p", "tcp", "--sport", str(core_port), "-j", "NOTRACK"]),
+                ("mangle", "OUTPUT", ["-p", "tcp", "--sport", str(core_port), "--tcp-flags", "RST", "RST", "-j", "DROP"]),
+            ]
+        else:
+            rules = [("raw", "OUTPUT", ["-p", "tcp", "--dport", str(core_port), "-j", "NOTRACK"])]
+            for port in ports or []:
+                listen_port = str(port).split("=", 1)[0].split(":", 1)[0].strip()
+                if listen_port.isdigit():
+                    rules.append(("raw", "PREROUTING", ["-p", "tcp", "--dport", listen_port, "-j", "NOTRACK"]))
+        try:
+            for table, chain, rule in rules:
+                while self._iptables_rule("-D", table, chain, rule):
+                    pass
+        except Exception as e:
+            print(f"[Agent] ⚠️ Failed to clean Paqet iptables rules: {e}")
+
     def send_heartbeat(self):
         metrics = self.get_system_metrics()
         url = f"{self.panel_url}/api/agent/heartbeat"
@@ -183,23 +327,57 @@ class HawalAgent:
                         f.write(toml_content)
                     self.restart_tunnel_process(tun_id, [BACKHAUL_BIN, "-c", cfg_path], toml_content)
 
+            elif core_type == "paqet":
+                if not self.ensure_paqet_binary():
+                    continue
+                cfg_path = f"{CONFIG_DIR}/{tun_id}.yaml"
+                yaml_template = item.get("yaml", "")
+                role = item.get("role", "client")
+                core_port = item.get("core_port", 8888)
+                ports = item.get("ports", [])
+
+                iface, local_ip, gw_mac = self.get_network_info()
+                if not iface or not local_ip or not gw_mac:
+                    print(f"[Agent] ❌ Paqet {tun_id} not started: interface, IPv4 address, or gateway MAC could not be detected.")
+                    self.stop_tunnel_process(tun_id)
+                    continue
+                yaml_content = yaml_template.replace("{{INTERFACE}}", iface).replace("{{LOCAL_IP}}", local_ip).replace("{{ROUTER_MAC}}", gw_mac)
+
+                if not is_running or self.running_configs.get(tun_id) != yaml_content:
+                    self.stop_tunnel_process(tun_id)
+                    with open(cfg_path, "w") as f:
+                        f.write(yaml_content)
+                    if not self.configure_paqet_iptables(role, core_port, ports):
+                        continue
+                    self.restart_tunnel_process(
+                        tun_id,
+                        [PAQET_BIN, "run", "-c", cfg_path],
+                        yaml_content,
+                        {"core_type": "paqet", "role": role, "core_port": core_port, "ports": ports}
+                    )
+
         # Stop removed tunnels
         for tun_id in list(self.running_processes.keys()):
             if tun_id not in active_ids:
                 print(f"[Agent] 🛑 Stopping removed tunnel {tun_id}...")
                 self.stop_tunnel_process(tun_id)
 
-    def restart_tunnel_process(self, tun_id, cmd, content_hash):
+    def restart_tunnel_process(self, tun_id, cmd, content_hash, metadata=None):
         self.stop_tunnel_process(tun_id)
         try:
             print(f"[Agent] 🚀 Launching tunnel {tun_id} -> {' '.join(cmd)}")
-            proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            log_path = f"{LOG_DIR}/{tun_id}.log"
+            log_file = open(log_path, "a")
+            proc = subprocess.Popen(cmd, stdout=log_file, stderr=subprocess.STDOUT)
+            log_file.close()
             self.running_processes[tun_id] = proc
             self.running_configs[tun_id] = content_hash
+            self.running_metadata[tun_id] = metadata or {}
         except Exception as e:
             print(f"[Agent] ❌ Failed to start tunnel process {tun_id}: {e}")
 
     def stop_tunnel_process(self, tun_id):
+        metadata = self.running_metadata.get(tun_id, {})
         if tun_id in self.running_processes:
             proc = self.running_processes[tun_id]
             try:
@@ -209,6 +387,9 @@ class HawalAgent:
                 proc.kill()
             del self.running_processes[tun_id]
             self.running_configs.pop(tun_id, None)
+        if metadata.get("core_type") == "paqet":
+            self.cleanup_paqet_iptables(metadata.get("role"), metadata.get("core_port"), metadata.get("ports"))
+        self.running_metadata.pop(tun_id, None)
 
     def track_and_report_traffic(self):
         reports = []
@@ -260,11 +441,21 @@ class HawalAgent:
 
     def run(self):
         print(f"🚀 Hawal Agent started ({self.node_name} - {self.role}). Syncing with {self.panel_url}...")
-        while True:
-            self.send_heartbeat()
-            self.sync_tunnels()
-            self.track_and_report_traffic()
-            time.sleep(4)
+        def request_shutdown(signum, _frame):
+            print(f"[Agent] 🛑 Shutdown signal {signum} received.")
+            self.shutdown_requested = True
+
+        signal.signal(signal.SIGTERM, request_shutdown)
+        signal.signal(signal.SIGINT, request_shutdown)
+        try:
+            while not self.shutdown_requested:
+                self.send_heartbeat()
+                self.sync_tunnels()
+                self.track_and_report_traffic()
+                time.sleep(4)
+        finally:
+            for tun_id in list(self.running_processes.keys()):
+                self.stop_tunnel_process(tun_id)
 
 if __name__ == "__main__":
     p_url = None

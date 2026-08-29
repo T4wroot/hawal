@@ -283,7 +283,13 @@ class HTTPServer:
             server_node_id = data.get("server_node_id")
             client_node_id = data.get("client_node_id")
             core_port = int(data.get("core_port", 3090))
-            transport = data.get("transport", "stealth" if core_type == "hawal" else "ws")
+            if core_type == "paqet":
+                default_transport = "kcp"
+            elif core_type == "hawal":
+                default_transport = "stealth"
+            else:
+                default_transport = "ws"
+            transport = data.get("transport", default_transport)
             ports = data.get("ports", ["443=127.0.0.1:443"])
             token = secrets.token_hex(8)
             
@@ -338,7 +344,13 @@ class HTTPServer:
             name = data.get("name")
             core_type = data.get("core_type", "hawal")
             core_port = int(data.get("core_port", 3090))
-            transport = data.get("transport", "stealth" if core_type == "hawal" else "ws")
+            if core_type == "paqet":
+                default_transport = "kcp"
+            elif core_type == "hawal":
+                default_transport = "stealth"
+            else:
+                default_transport = "ws"
+            transport = data.get("transport", default_transport)
             ports = data.get("ports", [])
             
             t = get_tunnel(tunnel_id)
@@ -539,6 +551,33 @@ class HTTPServer:
                 
                 core_type = t.get("core_type", "hawal")
 
+                # Paqet exposes forwarding listeners on its client. Hawal's
+                # server_node is the Iran/entry node, so Paqet roles must be
+                # mapped in reverse: Iran=client and foreign node=server.
+                if core_type == "paqet":
+                    if t["client_node_id"] == node["id"]:
+                        from app.paqet_engine import generate_paqet_server_config
+                        node_configs.append({
+                            "tunnel_id": t["id"],
+                            "core_type": "paqet",
+                            "role": "server",
+                            "core_port": t.get("core_port", 8888),
+                            "yaml": generate_paqet_server_config(t)
+                        })
+                    elif t["server_node_id"] == node["id"]:
+                        from app.paqet_engine import generate_paqet_client_config
+                        paqet_server_node = get_node(t["client_node_id"])
+                        paqet_server_ip = paqet_server_node["ip"] if paqet_server_node else "127.0.0.1"
+                        node_configs.append({
+                            "tunnel_id": t["id"],
+                            "core_type": "paqet",
+                            "role": "client",
+                            "core_port": t.get("core_port", 8888),
+                            "ports": t.get("ports", []),
+                            "yaml": generate_paqet_client_config(t, paqet_server_ip)
+                        })
+                    continue
+
                 if t["server_node_id"] == node["id"]:
                     if core_type == "hawal":
                         from app.hawal_engine import generate_hawal_core_server_config
@@ -553,7 +592,7 @@ class HTTPServer:
                             "tunnel_id": t["id"],
                             "core_type": "backhaul",
                             "role": "server",
-                            "toml": generate_server_toml(t)
+                            "toml": generate_server_config(t)
                         })
 
                 elif t["client_node_id"] == node["id"]:
@@ -572,7 +611,7 @@ class HTTPServer:
                             "tunnel_id": t["id"],
                             "core_type": "backhaul",
                             "role": "client",
-                            "toml": generate_client_toml(t, server_ip)
+                            "toml": generate_client_config(t, server_ip)
                         })
 
             self.send_json(writer, {"configs": node_configs})

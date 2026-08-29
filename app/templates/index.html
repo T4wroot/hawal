@@ -400,6 +400,10 @@
               <span class="engine-title" style="color: var(--cf-orange);">⚡ Hawal Stealth Core</span>
               <span class="engine-desc">نوشته‌شده با Go • ضد فیلتر • بدون افت آپلود</span>
             </div>
+            <div class="engine-card" id="card-engine-paqet" onclick="selectEngine('paqet')">
+              <span class="engine-title" style="color: #10b981;">🛡️ Paqet Core (Raw KCP)</span>
+              <span class="engine-desc">بای‌پس فایروال بالادستی • Raw TCP + KCP • ضد فیلترینگ شدید</span>
+            </div>
             <div class="engine-card" id="card-engine-backhaul" onclick="selectEngine('backhaul')">
               <span class="engine-title" style="color: #60a5fa;">🚀 Backhaul Core</span>
               <span class="engine-desc">موتور استاندارد بکهول • WebSocket / TCP / TLS</span>
@@ -479,6 +483,7 @@
           <label>موتور و هسته تانل:</label>
           <select id="edit-tunnel-core-type" class="form-control" onchange="handleEditCoreTypeChange()">
             <option value="hawal">⚡ هسته اختصاصی هه‌واڵ (Hawal Stealth Core - Go)</option>
+            <option value="paqet">🛡️ هسته ضد فیلتر پکت (Paqet Raw Packet + KCP)</option>
             <option value="backhaul">🚀 هسته بکهول (Backhaul Multiplex)</option>
           </select>
         </div>

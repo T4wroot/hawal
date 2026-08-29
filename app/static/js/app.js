@@ -48,19 +48,20 @@ function showToast(message, type = 'info') {
 function selectEngine(type) {
   document.getElementById('tunnel-core-type').value = type;
   const cardHawal = document.getElementById('card-engine-hawal');
+  const cardPaqet = document.getElementById('card-engine-paqet');
   const cardBackhaul = document.getElementById('card-engine-backhaul');
   const transportSelect = document.getElementById('tunnel-transport');
 
-  if (type === 'hawal') {
-    cardHawal.classList.add('active');
-    cardBackhaul.classList.remove('active');
-    if (transportSelect) {
+  if (cardHawal) cardHawal.classList.toggle('active', type === 'hawal');
+  if (cardPaqet) cardPaqet.classList.toggle('active', type === 'paqet');
+  if (cardBackhaul) cardBackhaul.classList.toggle('active', type === 'backhaul');
+
+  if (transportSelect) {
+    if (type === 'hawal') {
       transportSelect.innerHTML = '<option value="stealth" selected>⚡ Stealth Multi-Stream (ضد فیلتر و نویز متغیر)</option>';
-    }
-  } else {
-    cardBackhaul.classList.add('active');
-    cardHawal.classList.remove('active');
-    if (transportSelect) {
+    } else if (type === 'paqet') {
+      transportSelect.innerHTML = '<option value="kcp" selected>🛡️ Raw Packet KCP (AES-128-GCM • ضد فیلترینگ شدید)</option>';
+    } else {
       transportSelect.innerHTML = `
         <option value="ws" selected>WebSocket (بکهول استاندارد)</option>
         <option value="tcp">TCP (خام و مستقیم)</option>
@@ -78,6 +79,8 @@ function handleEditCoreTypeChange() {
 
   if (coreType === 'hawal') {
     transportSelect.innerHTML = '<option value="stealth" selected>⚡ Stealth Multi-Stream (ضد فیلتر و نویز متغیر)</option>';
+  } else if (coreType === 'paqet') {
+    transportSelect.innerHTML = '<option value="kcp" selected>🛡️ Raw Packet KCP (AES-128-GCM • ضد فیلترینگ شدید)</option>';
   } else {
     transportSelect.innerHTML = `
       <option value="ws" selected>WebSocket (بکهول استاندارد)</option>
@@ -322,7 +325,9 @@ function renderCloudflareTunnelsColumn() {
     row.className = 'cf-asset-row';
     row.onclick = () => switchTab('tunnels');
 
-    const isHawal = tun.core_type === 'hawal';
+    let engineLabel = '🚀 Backhaul';
+    if (tun.core_type === 'paqet') engineLabel = '🛡️ Paqet KCP';
+    else if (tun.core_type === 'hawal') engineLabel = '⚡ Stealth Core';
     const totalBytes = (tun.bytes_in || 0) + (tun.bytes_out || 0);
 
     row.innerHTML = `
@@ -331,7 +336,7 @@ function renderCloudflareTunnelsColumn() {
         <div>
           <div class="cf-asset-title">${tun.name}</div>
           <div class="cf-asset-subtitle">
-            ${isHawal ? '⚡ Stealth Core' : '🚀 Backhaul'} • پورت ${tun.core_port} • ${formatBytes(totalBytes)}
+            ${engineLabel} • پورت ${tun.core_port} • ${formatBytes(totalBytes)}
           </div>
         </div>
       </div>
@@ -562,7 +567,12 @@ function renderTunnels() {
 
   STATE.tunnels.forEach(tun => {
     const tr = document.createElement('tr');
-    const isHawal = tun.core_type === 'hawal';
+    let engineBadge = '<span style="color: #60a5fa; font-weight: 700;">🚀 Backhaul Core</span>';
+    if (tun.core_type === 'hawal') {
+      engineBadge = '<span style="color: var(--accent-amber); font-weight: 700;">⚡ هسته Go Stealth</span>';
+    } else if (tun.core_type === 'paqet') {
+      engineBadge = '<span style="color: #10b981; font-weight: 700;">🛡️ Paqet Raw KCP</span>';
+    }
     const isRunning = tun.status === 'running';
     const bIn = tun.bytes_in || 0;
     const bOut = tun.bytes_out || 0;
@@ -590,7 +600,7 @@ function renderTunnels() {
       <td>
         <div style="font-weight: 800;">${tun.name}</div>
         <div style="font-size: 11px; margin-top: 2px;">
-          ${isHawal ? '<span style="color: var(--accent-amber); font-weight: 700;">⚡ هسته Go Stealth</span>' : '<span style="color: #60a5fa; font-weight: 700;">🚀 Backhaul Core</span>'}
+          ${engineBadge}
         </div>
       </td>
       <td style="font-family: 'JetBrains Mono'; font-size: 13px;">${tun.server_name || 'Iran Node'}</td>
