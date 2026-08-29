@@ -217,18 +217,18 @@ function switchTab(tabId) {
   if (activeNav) activeNav.classList.add('active');
 
   const titles = {
-    'dashboard': 'Account Home',
-    'nodes': 'Nodes & Edge Servers',
-    'tunnels': 'Tunnels & Routing',
-    'ping': 'Diagnostics & Ping',
-    'settings': 'Configurations'
+    'dashboard': 'نمای کلی',
+    'nodes': 'نودها',
+    'tunnels': 'تانل‌ها',
+    'ping': 'آزمایش شبکه',
+    'settings': 'تنظیمات'
   };
   const breadcrumbs = document.getElementById('cf-breadcrumbs');
   if (breadcrumbs) {
     breadcrumbs.innerHTML = `
-      <span>Hawal Global Network</span>
+      <span>Hawal</span>
       <span>/</span>
-      <span style="color: var(--cf-text-primary); font-weight: 700;">${titles[tabId] || 'Dashboard'}</span>
+      <span style="color: var(--cf-text-primary); font-weight: 700;">${titles[tabId] || 'نمای کلی'}</span>
     `;
   }
 }
@@ -388,7 +388,7 @@ function renderCloudflareAnalyticsColumn(totalIn, totalOut) {
       <div class="cf-asset-left">
         <svg class="cf-asset-icon" style="color: var(--cf-green);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
         <div>
-          <div class="cf-asset-title">Inbound Traffic (دانلود)</div>
+          <div class="cf-asset-title">ترافیک ورودی</div>
           <div class="cf-asset-subtitle">${formatBytes(totalIn)}</div>
         </div>
       </div>
@@ -399,7 +399,7 @@ function renderCloudflareAnalyticsColumn(totalIn, totalOut) {
       <div class="cf-asset-left">
         <svg class="cf-asset-icon" style="color: var(--cf-blue);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
         <div>
-          <div class="cf-asset-title">Outbound Traffic (آپلود)</div>
+          <div class="cf-asset-title">ترافیک خروجی</div>
           <div class="cf-asset-subtitle">${formatBytes(totalOut)}</div>
         </div>
       </div>
@@ -410,8 +410,8 @@ function renderCloudflareAnalyticsColumn(totalIn, totalOut) {
       <div class="cf-asset-left">
         <svg class="cf-asset-icon" style="color: var(--cf-orange);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
         <div>
-          <div class="cf-asset-title">Average Network RTT</div>
-          <div class="cf-asset-subtitle">~78.7 ms (0% Packet Loss)</div>
+          <div class="cf-asset-title">تاخیر میانگین شبکه</div>
+          <div class="cf-asset-subtitle">برای مشاهده، آزمایش شبکه را اجرا کنید</div>
         </div>
       </div>
       <svg class="cf-asset-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
@@ -423,37 +423,41 @@ function renderTopology() {
   const container = document.getElementById('topology-container');
   if (!container) return;
 
-  const iranNode = STATE.nodes.find(n => n.role === 'iran') || { name: 'Iran Hub', ip: '5.202.7.123', status: 'online', flag: '🇮🇷' };
-  const kharejNode = STATE.nodes.find(n => n.role === 'kharej') || { name: 'Germany Core', ip: '167.172.102.14', status: 'online', flag: '🇩🇪' };
+  const iranNode = STATE.nodes.find(n => n.role === 'iran');
+  const kharejNode = STATE.nodes.find(n => n.role === 'kharej');
+  const indicator = document.getElementById('cf-rtt-indicator');
+
+  if (!iranNode || !kharejNode) {
+    if (indicator) indicator.textContent = 'برای نمایش مسیر، دو نود اضافه کنید';
+    container.innerHTML = `
+      <div class="topology-empty">
+        <div class="topology-empty-icon">↔</div>
+        <div><strong>مسیر ارتباطی هنوز آماده نیست</strong><span>یک نود ایران و یک نود خارج اضافه کنید تا نقشهٔ ارتباط نمایش داده شود.</span></div>
+        <button class="btn btn-secondary btn-sm" onclick="openAddNodeModal()">افزودن نود</button>
+      </div>`;
+    return;
+  }
+
+  const activeTunnels = STATE.tunnels.filter(t => t.status === 'running').length;
+  const iranOnline = iranNode.status === 'online';
+  const foreignOnline = kharejNode.status === 'online';
+  const routeHealthy = iranOnline && foreignOnline;
+  if (indicator) indicator.textContent = routeHealthy ? `${activeTunnels} تانل فعال` : 'نیازمند بررسی نودها';
 
   container.innerHTML = `
-    <div class="topology-node">
-      <div style="font-size: 28px;">${iranNode.flag || '🇮🇷'}</div>
-      <div>
-        <div style="font-weight: 800; font-size: 15px;">${iranNode.name}</div>
-        <div style="font-size: 12px; color: var(--accent-amber); font-family: 'JetBrains Mono';">${iranNode.ip}</div>
-        <div class="badge ${iranNode.status === 'online' ? 'badge-online' : 'badge-offline'}" style="margin-top: 4px;">
-          <span class="status-dot ${iranNode.status === 'online' ? 'online' : 'offline'}"></span>
-          ${iranNode.status === 'online' ? 'لیسنر آنلاین' : 'آفلاین'}
-        </div>
+    <div class="topology-network">
+      <div class="route-node ${iranOnline ? 'online' : 'offline'}">
+        <div class="route-flag">${iranNode.flag || '🇮🇷'}</div>
+        <div class="route-copy"><span class="route-label">نود ایران</span><strong>${iranNode.name}</strong><code>${iranNode.ip}</code></div>
+        <span class="route-status"><i></i>${iranOnline ? 'متصل' : 'قطع'}</span>
       </div>
-    </div>
-
-    <div class="topology-line">
-      <span class="topology-badge">⚡ Go Stealth Multiplex • 0.2ms Overhead</span>
-      <div class="topology-track"></div>
-      <span style="font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono';">Throughput: High-Speed • Zero-Loss</span>
-    </div>
-
-    <div class="topology-node">
-      <div style="font-size: 28px;">${kharejNode.flag || '🇩🇪'}</div>
-      <div>
-        <div style="font-weight: 800; font-size: 15px;">${kharejNode.name}</div>
-        <div style="font-size: 12px; color: var(--accent-amber); font-family: 'JetBrains Mono';">${kharejNode.ip}</div>
-        <div class="badge ${kharejNode.status === 'online' ? 'badge-online' : 'badge-offline'}" style="margin-top: 4px;">
-          <span class="status-dot ${kharejNode.status === 'online' ? 'online' : 'offline'}"></span>
-          ${kharejNode.status === 'online' ? 'نود متصل و فعال' : 'آفلاین'}
-        </div>
+      <div class="route-connector ${routeHealthy ? 'healthy' : ''}">
+        <span>${activeTunnels} تانل فعال</span><div><i></i><i></i><i></i></div><small>مسیر رمزگذاری‌شده</small>
+      </div>
+      <div class="route-node ${foreignOnline ? 'online' : 'offline'}">
+        <div class="route-flag">${kharejNode.flag || '🌐'}</div>
+        <div class="route-copy"><span class="route-label">نود خارج</span><strong>${kharejNode.name}</strong><code>${kharejNode.ip}</code></div>
+        <span class="route-status"><i></i>${foreignOnline ? 'متصل' : 'قطع'}</span>
       </div>
     </div>
   `;
