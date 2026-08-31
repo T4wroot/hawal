@@ -89,6 +89,11 @@ class HTTPServer:
                 tunnels = list_tunnels()
                 changed = False
                 for tun in tunnels:
+                    # Paqet uses raw sockets, which are invisible to ss. Its
+                    # dedicated server-side raw-table counters are reported by the
+                    # node agent, so never overwrite them with socket statistics.
+                    if tun.get("core_type") == "paqet":
+                        continue
                     tun_id = tun["id"]
                     ports = tun.get("ports", [])
                     core_port = tun.get("core_port")

@@ -391,6 +391,32 @@ class HawalAgent:
         reports = []
         for tun_id, proc in list(self.running_processes.items()):
             if proc.poll() is None:
+                metadata = self.running_metadata.get(tun_id, {})
+                # Paqet passes packets through pcap/raw sockets, so /proc/PID/io
+                # measures process file I/O rather than transferred traffic. Its
+                # server port is dedicated to a tunnel, which gives us exact
+                # wire-level byte counters in the raw iptables chains. Report from
+                # the server only to avoid counting the same tunnel twice.
+                if metadata.get("core_type") == "paqet":
+                    if metadata.get("role") != "server":
+                        continue
+                    try:
+                        core_port = int(metadata["core_port"])
+                        received = self._iptables_bytes("PREROUTING", "dport", core_port)
+                        sent = self._iptables_bytes("OUTPUT", "sport", core_port)
+                        last_received, last_sent = getattr(self, "_last_paqet_traffic", {}).get(
+                            tun_id, (received, sent)
+                        )
+                        if not hasattr(self, "_last_paqet_traffic"):
+                            self._last_paqet_traffic = {}
+                        self._last_paqet_traffic[tun_id] = (received, sent)
+                        delta_in = max(0, received - last_received)
+                        delta_out = max(0, sent - last_sent)
+                        if delta_in or delta_out:
+                            reports.append({"tunnel_id": tun_id, "bytes_in": delta_in, "bytes_out": delta_out})
+                    except Exception:
+                        pass
+                    continue
                 pid = proc.pid
                 io_path = f"/proc/{pid}/io"
                 try:
@@ -434,6 +460,21 @@ class HawalAgent:
                     pass
             except Exception:
                 pass
+
+    def _iptables_bytes(self, chain, port_kind, port):
+        """Return the exact byte counter for one Paqet raw-table rule."""
+        result = subprocess.run(
+            ["iptables", "-t", "raw", "-nvxL", chain],
+            capture_output=True, text=True, timeout=3, check=True
+        )
+        needle = f"{port_kind}:{port}"
+        for line in result.stdout.splitlines():
+            if needle not in line or "NOTRACK" not in line:
+                continue
+            columns = line.split()
+            if len(columns) >= 2 and columns[0].isdigit() and columns[1].isdigit():
+                return int(columns[1])
+        raise RuntimeError(f"Paqet raw counter not found: {chain} {needle}")
 
     def run(self):
         print(f"🚀 Hawal Agent started ({self.node_name} - {self.role}). Syncing with {self.panel_url}...")
