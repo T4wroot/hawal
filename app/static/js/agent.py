@@ -467,7 +467,10 @@ class HawalAgent:
             ["iptables", "-t", "raw", "-nvxL", chain],
             capture_output=True, text=True, timeout=3, check=True
         )
-        needle = f"{port_kind}:{port}"
+        # iptables -L abbreviates these fields in its human-readable output
+        # (dport -> dpt and sport -> spt).
+        display_kind = {"dport": "dpt", "sport": "spt"}.get(port_kind, port_kind)
+        needle = f"{display_kind}:{port}"
         for line in result.stdout.splitlines():
             if needle not in line or "NOTRACK" not in line:
                 continue
