@@ -226,11 +226,11 @@ class HawalAgent:
                 ("mangle", "OUTPUT", ["-p", "tcp", "--sport", str(core_port), "--tcp-flags", "RST", "RST", "-j", "DROP"]),
             ]
         else:
-            rules = [("raw", "OUTPUT", ["-p", "tcp", "--dport", str(core_port), "-j", "NOTRACK"])]
-            for port in ports or []:
-                listen_port = str(port).split("=", 1)[0].split(":", 1)[0].strip()
-                if listen_port.isdigit():
-                    rules.append(("raw", "PREROUTING", ["-p", "tcp", "--dport", listen_port, "-j", "NOTRACK"]))
+            # Paqet's client uses a normal local TCP listener for forwarded ports.
+            # The upstream firewall bypass rules are required only on the raw-packet
+            # server port; applying NOTRACK to a forwarded port (such as 80/443)
+            # can break conntrack for real client traffic.
+            rules = []
         try:
             for table, chain, rule in rules:
                 if not self._iptables_rule("-C", table, chain, rule):
@@ -250,11 +250,7 @@ class HawalAgent:
                 ("mangle", "OUTPUT", ["-p", "tcp", "--sport", str(core_port), "--tcp-flags", "RST", "RST", "-j", "DROP"]),
             ]
         else:
-            rules = [("raw", "OUTPUT", ["-p", "tcp", "--dport", str(core_port), "-j", "NOTRACK"])]
-            for port in ports or []:
-                listen_port = str(port).split("=", 1)[0].split(":", 1)[0].strip()
-                if listen_port.isdigit():
-                    rules.append(("raw", "PREROUTING", ["-p", "tcp", "--dport", listen_port, "-j", "NOTRACK"]))
+            rules = []
         try:
             for table, chain, rule in rules:
                 while self._iptables_rule("-D", table, chain, rule):
