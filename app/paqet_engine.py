@@ -97,10 +97,7 @@ def generate_paqet_client_config(tunnel, server_ip):
         target = p["target"]
         forward_lines.append(f"""  - listen: "0.0.0.0:{listen_port}"
     target: "{target}"
-    protocol: "tcp"
-  - listen: "0.0.0.0:{listen_port}"
-    target: "{target}"
-    protocol: "udp" """)
+    protocol: "tcp" """)
 
     forward_block = "\n".join(forward_lines) if forward_lines else """  - listen: "0.0.0.0:443"
     target: "127.0.0.1:443"
