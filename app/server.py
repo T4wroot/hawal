@@ -14,6 +14,7 @@ from app.db import (
     init_db, list_nodes, get_node, get_node_by_token, save_node, delete_node,
     update_node_heartbeat, list_tunnels, get_tunnel, update_tunnel, save_tunnel,
     set_tunnel_status, delete_tunnel, record_ping, get_latest_pings,
+    request_tunnel_restart, request_all_agents_restart,
     set_tunnel_absolute_traffic
 )
 from app.backhaul import validate_tunnel_ports, generate_server_config, generate_client_config
@@ -381,6 +382,22 @@ class HTTPServer:
             self.send_json(writer, {"success": True})
             return
 
+        if method == "POST" and "/api/tunnels/" in path and path.endswith("/restart"):
+            tunnel_id = path.split("/")[3]
+            if not get_tunnel(tunnel_id):
+                self.send_json(writer, {"error": "Tunnel not found"}, status=404)
+                return
+            request_tunnel_restart(tunnel_id)
+            self.send_json(writer, {"success": True, "tunnel_id": tunnel_id})
+            await broadcast_ws({"event": "tunnel_updated"})
+            return
+
+        if method == "POST" and path == "/api/agents/restart":
+            count = request_all_agents_restart()
+            self.send_json(writer, {"success": True, "nodes": count})
+            await broadcast_ws({"event": "node_updated"})
+            return
+
         if method == "POST" and "/api/tunnels/" in path and path.endswith("/test"):
             tunnel_id = path.split("/")[3]
             t = get_tunnel(tunnel_id)
@@ -533,12 +550,12 @@ class HTTPServer:
                 if t["status"] == "running":
                     if t["server_node_id"] == node["id"]:
                         cfg = generate_server_config(t)
-                        assigned_configs.append({"tunnel_id": t["id"], "role": "server", "config": cfg})
+                        assigned_configs.append({"tunnel_id": t["id"], "role": "server", "config": cfg, "restart_nonce": t.get("restart_nonce", 0)})
                     elif t["client_node_id"] == node["id"]:
                         server_node = get_node(t["server_node_id"])
                         server_ip = server_node["ip"] if server_node else "127.0.0.1"
                         cfg = generate_client_config(t, server_ip)
-                        assigned_configs.append({"tunnel_id": t["id"], "role": "client", "config": cfg})
+                        assigned_configs.append({"tunnel_id": t["id"], "role": "client", "config": cfg, "restart_nonce": t.get("restart_nonce", 0)})
 
             self.send_json(writer, {"status": "ok", "tunnels": assigned_configs})
             await broadcast_ws({"event": "node_heartbeat", "node_id": node["id"]})
@@ -572,7 +589,7 @@ class HTTPServer:
                             "core_type": "paqet",
                             "role": "server",
                             "core_port": t.get("core_port", 8888),
-                            "yaml": generate_paqet_server_config(t)
+                            "yaml": generate_paqet_server_config(t), "restart_nonce": t.get("restart_nonce", 0)
                         })
                     elif t["server_node_id"] == node["id"]:
                         from app.paqet_engine import generate_paqet_client_config
@@ -584,7 +601,7 @@ class HTTPServer:
                             "role": "client",
                             "core_port": t.get("core_port", 8888),
                             "ports": t.get("ports", []),
-                            "yaml": generate_paqet_client_config(t, paqet_server_ip)
+                            "yaml": generate_paqet_client_config(t, paqet_server_ip), "restart_nonce": t.get("restart_nonce", 0)
                         })
                     continue
 
@@ -592,14 +609,14 @@ class HTTPServer:
                     if t["client_node_id"] == node["id"]:
                         node_configs.append({
                             "tunnel_id": t["id"], "core_type": "gost", "role": "server",
-                            "command": generate_gost_server_command(t),
+                            "command": generate_gost_server_command(t), "restart_nonce": t.get("restart_nonce", 0)
                         })
                     elif t["server_node_id"] == node["id"]:
                         gost_server = get_node(t["client_node_id"])
                         gost_server_ip = gost_server["ip"] if gost_server else "127.0.0.1"
                         node_configs.append({
                             "tunnel_id": t["id"], "core_type": "gost", "role": "client",
-                            "command": generate_gost_client_command(t, gost_server_ip),
+                            "command": generate_gost_client_command(t, gost_server_ip), "restart_nonce": t.get("restart_nonce", 0)
                         })
                     continue
 
@@ -610,14 +627,14 @@ class HTTPServer:
                             "tunnel_id": t["id"],
                             "core_type": "hawal",
                             "role": "server",
-                            "config": generate_hawal_core_server_config(t)
+                            "config": generate_hawal_core_server_config(t), "restart_nonce": t.get("restart_nonce", 0)
                         })
                     else:
                         node_configs.append({
                             "tunnel_id": t["id"],
                             "core_type": "backhaul",
                             "role": "server",
-                            "toml": generate_server_config(t)
+                            "toml": generate_server_config(t), "restart_nonce": t.get("restart_nonce", 0)
                         })
 
                 elif t["client_node_id"] == node["id"]:
@@ -629,17 +646,17 @@ class HTTPServer:
                             "tunnel_id": t["id"],
                             "core_type": "hawal",
                             "role": "client",
-                            "config": generate_hawal_core_client_config(t, server_ip)
+                            "config": generate_hawal_core_client_config(t, server_ip), "restart_nonce": t.get("restart_nonce", 0)
                         })
                     else:
                         node_configs.append({
                             "tunnel_id": t["id"],
                             "core_type": "backhaul",
                             "role": "client",
-                            "toml": generate_client_config(t, server_ip)
+                            "toml": generate_client_config(t, server_ip), "restart_nonce": t.get("restart_nonce", 0)
                         })
 
-            self.send_json(writer, {"configs": node_configs})
+            self.send_json(writer, {"configs": node_configs, "agent_restart_nonce": node.get("agent_restart_nonce", 0)})
             return
 
         # Not found fallback

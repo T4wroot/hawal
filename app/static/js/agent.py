@@ -23,6 +23,7 @@ BACKHAUL_BIN = f"{BIN_DIR}/backhaul"
 PAQET_BIN = f"{BIN_DIR}/paqet"
 GOST_BIN = f"{BIN_DIR}/gost"
 AGENT_JSON_PATH = "/etc/hawal/agent.json"
+AGENT_RESTART_NONCE_PATH = f"{HAWAL_DIR}/agent-restart-nonce"
 
 class HawalAgent:
     def __init__(self, panel_url, token, role="kharej", node_name=""):
@@ -34,10 +35,22 @@ class HawalAgent:
         self.running_configs = {}   # {tunnel_id: hash}
         self.running_metadata = {}  # {tunnel_id: runtime details used for cleanup}
         self.shutdown_requested = False
+        self.agent_restart_nonce = self._load_agent_restart_nonce()
 
         os.makedirs(BIN_DIR, exist_ok=True)
         os.makedirs(CONFIG_DIR, exist_ok=True)
         os.makedirs(LOG_DIR, exist_ok=True)
+
+    def _load_agent_restart_nonce(self):
+        try:
+            with open(AGENT_RESTART_NONCE_PATH, "r") as f:
+                return int(f.read().strip() or 0)
+        except Exception:
+            return 0
+
+    def _save_agent_restart_nonce(self, nonce):
+        with open(AGENT_RESTART_NONCE_PATH, "w") as f:
+            f.write(str(nonce))
 
     def get_system_metrics(self):
         metrics = {
@@ -321,6 +334,12 @@ class HawalAgent:
                 data = json.loads(response.read().decode('utf-8'))
                 configs = data.get("configs", [])
                 self.apply_configs(configs)
+                requested_nonce = int(data.get("agent_restart_nonce", 0) or 0)
+                if requested_nonce > self.agent_restart_nonce:
+                    self._save_agent_restart_nonce(requested_nonce)
+                    self.agent_restart_nonce = requested_nonce
+                    print("[Agent] 🔄 Restart requested by panel.")
+                    self.shutdown_requested = True
         except Exception as e:
             pass
 
@@ -330,6 +349,7 @@ class HawalAgent:
         for item in configs:
             tun_id = item["tunnel_id"]
             core_type = item.get("core_type", "hawal")
+            restart_marker = f"\x00restart:{item.get('restart_nonce', 0)}"
             active_ids.add(tun_id)
 
             proc = self.running_processes.get(tun_id)
@@ -342,19 +362,21 @@ class HawalAgent:
                 cfg_path = f"{CONFIG_DIR}/{tun_id}.json"
                 cfg_content = json.dumps(item["config"], indent=2)
                 
-                if not is_running or self.running_configs.get(tun_id) != cfg_content:
+                marker = cfg_content + restart_marker
+                if not is_running or self.running_configs.get(tun_id) != marker:
                     with open(cfg_path, "w") as f:
                         f.write(cfg_content)
-                    self.restart_tunnel_process(tun_id, [HAWAL_CORE_BIN, "-config", cfg_path], cfg_content)
+                    self.restart_tunnel_process(tun_id, [HAWAL_CORE_BIN, "-config", cfg_path], marker)
 
             elif core_type == "backhaul":
                 self.ensure_backhaul_binary()
                 cfg_path = f"{CONFIG_DIR}/{tun_id}.toml"
                 toml_content = item.get("toml", "")
-                if not is_running or self.running_configs.get(tun_id) != toml_content:
+                marker = toml_content + restart_marker
+                if not is_running or self.running_configs.get(tun_id) != marker:
                     with open(cfg_path, "w") as f:
                         f.write(toml_content)
-                    self.restart_tunnel_process(tun_id, [BACKHAUL_BIN, "-c", cfg_path], toml_content)
+                    self.restart_tunnel_process(tun_id, [BACKHAUL_BIN, "-c", cfg_path], marker)
 
             elif core_type == "paqet":
                 if not self.ensure_paqet_binary():
@@ -372,7 +394,8 @@ class HawalAgent:
                     continue
                 yaml_content = yaml_template.replace("{{INTERFACE}}", iface).replace("{{LOCAL_IP}}", local_ip).replace("{{ROUTER_MAC}}", gw_mac)
 
-                if not is_running or self.running_configs.get(tun_id) != yaml_content:
+                marker = yaml_content + restart_marker
+                if not is_running or self.running_configs.get(tun_id) != marker:
                     self.stop_tunnel_process(tun_id)
                     with open(cfg_path, "w") as f:
                         f.write(yaml_content)
@@ -381,7 +404,7 @@ class HawalAgent:
                     self.restart_tunnel_process(
                         tun_id,
                         [PAQET_BIN, "run", "-c", cfg_path],
-                        yaml_content,
+                        marker,
                         {"core_type": "paqet", "role": role, "core_port": core_port, "ports": ports}
                     )
 
@@ -393,9 +416,10 @@ class HawalAgent:
                     print(f"[Agent] ❌ GOST {tun_id} not started: empty command.")
                     continue
                 command_content = json.dumps(command, separators=(",", ":"))
-                if not is_running or self.running_configs.get(tun_id) != command_content:
+                marker = command_content + restart_marker
+                if not is_running or self.running_configs.get(tun_id) != marker:
                     self.restart_tunnel_process(
-                        tun_id, [GOST_BIN] + command, command_content,
+                        tun_id, [GOST_BIN] + command, marker,
                         {"core_type": "gost", "role": item.get("role", "client")}
                     )
 

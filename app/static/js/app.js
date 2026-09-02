@@ -647,6 +647,9 @@ function renderTunnels() {
       </td>
       <td>
         <div style="display: flex; gap: 6px;">
+          <button class="btn btn-secondary btn-sm" onclick="restartTunnel('${tun.id}')" title="ری‌استارت همین تانل در هر دو نود">
+            ↻ ری‌استارت
+          </button>
           <button class="btn btn-edit btn-sm" onclick="openEditTunnelModal('${tun.id}')" title="ویرایش پورت‌ها و تنظیمات">
             ✏️ ویرایش
           </button>
@@ -685,6 +688,30 @@ async function testTunnel(tunnelId) {
     STATE.tunnelTestResults[tunnelId] = { success: false, error: e.message };
     renderTunnels();
     showToast('خطا در اجرای تست پینگ تانل', 'error');
+  }
+}
+
+async function restartTunnel(tunnelId) {
+  if (!confirm('این تانل در هر دو نود برای چند ثانیه قطع و دوباره اجرا می‌شود. ادامه می‌دهید؟')) return;
+  try {
+    const res = await fetch(`/api/tunnels/${tunnelId}/restart`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'درخواست ناموفق بود');
+    showToast('دستور ری‌استارت تانل ارسال شد؛ حداکثر تا چند ثانیه اعمال می‌شود.', 'success');
+  } catch (e) {
+    showToast(`ری‌استارت تانل ناموفق بود: ${e.message}`, 'error');
+  }
+}
+
+async function restartAllAgents() {
+  if (!confirm('همهٔ ایجنت‌ها و تانل‌ها برای چند ثانیه ری‌استارت می‌شوند. ادامه می‌دهید؟')) return;
+  try {
+    const res = await fetch('/api/agents/restart', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'درخواست ناموفق بود');
+    showToast(`دستور ری‌استارت برای ${data.nodes} ایجنت ارسال شد.`, 'success');
+  } catch (e) {
+    showToast(`ری‌استارت ایجنت‌ها ناموفق بود: ${e.message}`, 'error');
   }
 }
 

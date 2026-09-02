@@ -52,6 +52,7 @@ def init_db():
             mux_con INTEGER DEFAULT 8,
             keepalive INTEGER DEFAULT 75,
             channel_size INTEGER DEFAULT 2048,
+            restart_nonce INTEGER NOT NULL DEFAULT 0,
             created_at REAL NOT NULL,
             FOREIGN KEY (server_node_id) REFERENCES nodes (id) ON DELETE CASCADE,
             FOREIGN KEY (client_node_id) REFERENCES nodes (id) ON DELETE CASCADE
@@ -83,6 +84,14 @@ def init_db():
             pass
         try:
             cursor.execute("ALTER TABLE tunnels ADD COLUMN bytes_out INTEGER DEFAULT 0")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE tunnels ADD COLUMN restart_nonce INTEGER NOT NULL DEFAULT 0")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE nodes ADD COLUMN agent_restart_nonce INTEGER NOT NULL DEFAULT 0")
         except:
             pass
         try:
@@ -248,6 +257,20 @@ def update_tunnel(tunnel_id, name, core_port, transport, ports, core_type='hawal
         WHERE id = ?
         """, (name, int(core_port), transport, ports_json, core_type, tunnel_id))
         conn.commit()
+
+def request_tunnel_restart(tunnel_id):
+    with get_db() as conn:
+        cursor = conn.execute(
+            "UPDATE tunnels SET restart_nonce = restart_nonce + 1 WHERE id = ?", (tunnel_id,)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
+def request_all_agents_restart():
+    with get_db() as conn:
+        cursor = conn.execute("UPDATE nodes SET agent_restart_nonce = agent_restart_nonce + 1")
+        conn.commit()
+        return cursor.rowcount
 
 def update_tunnel_traffic(tunnel_id, bytes_in, bytes_out):
     with get_db() as conn:
