@@ -383,6 +383,11 @@
               <span class="engine-desc">سازگار با WebSocket، TCP و TLS</span>
               <span class="engine-meta">سازگار</span>
             </div>
+            <div class="engine-card" id="card-engine-gost" onclick="selectEngine('gost')">
+              <span class="engine-title">GOST</span>
+              <span class="engine-desc">Relay رمزنگاری‌شده با TLS، WS، KCP و QUIC</span>
+              <span class="engine-meta">مسیر پشتیبان</span>
+            </div>
           </div>
           <input type="hidden" id="tunnel-core-type" value="hawal">
         </div>
@@ -460,6 +465,7 @@
             <option value="hawal">⚡ هسته اختصاصی هه‌واڵ (Hawal Stealth Core - Go)</option>
             <option value="paqet">🛡️ هسته ضد فیلتر پکت (Paqet Raw Packet + KCP)</option>
             <option value="backhaul">🚀 هسته بکهول (Backhaul Multiplex)</option>
+            <option value="gost">👻 هسته GOST v3 (Encrypted Relay)</option>
           </select>
         </div>
 

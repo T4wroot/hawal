@@ -50,17 +50,26 @@ function selectEngine(type) {
   const cardHawal = document.getElementById('card-engine-hawal');
   const cardPaqet = document.getElementById('card-engine-paqet');
   const cardBackhaul = document.getElementById('card-engine-backhaul');
+  const cardGost = document.getElementById('card-engine-gost');
   const transportSelect = document.getElementById('tunnel-transport');
 
   if (cardHawal) cardHawal.classList.toggle('active', type === 'hawal');
   if (cardPaqet) cardPaqet.classList.toggle('active', type === 'paqet');
   if (cardBackhaul) cardBackhaul.classList.toggle('active', type === 'backhaul');
+  if (cardGost) cardGost.classList.toggle('active', type === 'gost');
 
   if (transportSelect) {
     if (type === 'hawal') {
       transportSelect.innerHTML = '<option value="stealth" selected>⚡ Stealth Multi-Stream (ضد فیلتر و نویز متغیر)</option>';
     } else if (type === 'paqet') {
       transportSelect.innerHTML = '<option value="kcp" selected>🛡️ Raw Packet KCP (AES-128-GCM • ضد فیلترینگ شدید)</option>';
+    } else if (type === 'gost') {
+      transportSelect.innerHTML = `
+        <option value="tls" selected>🔒 Relay over TLS (رمزنگاری‌شده و پایدار)</option>
+        <option value="ws">WebSocket Relay</option>
+        <option value="kcp">KCP Relay (UDP)</option>
+        <option value="quic">QUIC Relay (UDP)</option>
+      `;
     } else {
       transportSelect.innerHTML = `
         <option value="ws" selected>WebSocket (بکهول استاندارد)</option>
@@ -81,6 +90,13 @@ function handleEditCoreTypeChange() {
     transportSelect.innerHTML = '<option value="stealth" selected>⚡ Stealth Multi-Stream (ضد فیلتر و نویز متغیر)</option>';
   } else if (coreType === 'paqet') {
     transportSelect.innerHTML = '<option value="kcp" selected>🛡️ Raw Packet KCP (AES-128-GCM • ضد فیلترینگ شدید)</option>';
+  } else if (coreType === 'gost') {
+    transportSelect.innerHTML = `
+      <option value="tls" selected>🔒 Relay over TLS</option>
+      <option value="ws">WebSocket Relay</option>
+      <option value="kcp">KCP Relay (UDP)</option>
+      <option value="quic">QUIC Relay (UDP)</option>
+    `;
   } else {
     transportSelect.innerHTML = `
       <option value="ws" selected>WebSocket (بکهول استاندارد)</option>
@@ -328,6 +344,7 @@ function renderCloudflareTunnelsColumn() {
     let engineLabel = '🚀 Backhaul';
     if (tun.core_type === 'paqet') engineLabel = '🛡️ Paqet KCP';
     else if (tun.core_type === 'hawal') engineLabel = '⚡ Stealth Core';
+    else if (tun.core_type === 'gost') engineLabel = '👻 GOST Relay';
     const totalBytes = (tun.bytes_in || 0) + (tun.bytes_out || 0);
 
     row.innerHTML = `
@@ -576,6 +593,8 @@ function renderTunnels() {
       engineBadge = '<span style="color: var(--accent-amber); font-weight: 700;">⚡ هسته Go Stealth</span>';
     } else if (tun.core_type === 'paqet') {
       engineBadge = '<span style="color: #10b981; font-weight: 700;">🛡️ Paqet Raw KCP</span>';
+    } else if (tun.core_type === 'gost') {
+      engineBadge = '<span style="color: #7c3aed; font-weight: 700;">👻 GOST Relay</span>';
     }
     const isRunning = tun.status === 'running';
     const bIn = tun.bytes_in || 0;

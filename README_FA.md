@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563eb.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ed?logo=docker&logoColor=white)](docker-compose.yml)
-[![Cores](https://img.shields.io/badge/Cores-Hawal%20%7C%20Backhaul%20%7C%20Paqet-0f766e)](#هستهها-و-انتخاب-صحیح)
+[![Cores](https://img.shields.io/badge/Cores-Hawal%20%7C%20Backhaul%20%7C%20Paqet%20%7C%20GOST-0f766e)](#هستهها-و-انتخاب-صحیح)
 
 **هه‌واڵ** در کردی یعنی «دوست و همراه». Hawal پیکربندی تانل‌ها را در پنل نگه می‌دارد و ایجنت‌های سبک، آن را روی سرورها همگام و اجرا می‌کنند.
 
@@ -19,7 +19,7 @@
 
 - ساخت و ویرایش تانل با چند پورت فوروارد از پنل وب
 - افزودن نودهای ایران و خارج با دستور نصب تولیدشده از پنل
-- سه هستهٔ قابل انتخاب: **Hawal Stealth Core**، **Backhaul** و **Paqet**
+- چهار هستهٔ قابل انتخاب: **Hawal Stealth Core**، **Backhaul**، **Paqet** و **GOST v3**
 - وضعیت زندهٔ نودها، CPU/RAM، تست Ping و بررسی سلامت
 - شمارش واقعی مصرف Paqet از raw-table سرور مقصد، شامل سربار KCP
 - سرویس‌های Systemd برای پنل و ایجنت و Docker Compose برای پنل
@@ -48,12 +48,14 @@
 | ⚡ **Hawal Stealth Core** | شروع ساده و استفادهٔ عمومی | `stealth` | هستهٔ اختصاصی Hawal با padding و `nodelay` |
 | 🚀 **Backhaul** | تانل‌های multiplex استاندارد | `ws`، `tcp`، `tcpmux`، `tls` | پورت هسته باید از پورت‌های فوروارد جدا باشد |
 | 🛡️ **Paqet** | مسیرهای raw-packet/KCP | `kcp` | به root، NIC مناسب و firewall نیاز دارد؛ برای سناریوهای پیشرفته |
+| 👻 **GOST v3** | مسیر پشتیبان رمزنگاری‌شده | `tls`، `ws`، `kcp`، `quic` | فوروارد TCP با Relay احراز هویت‌شده؛ باینری خودکار توسط ایجنت دریافت می‌شود |
 
 ### توصیه
 
 1. برای شروع، **Hawal Stealth Core** را انتخاب کنید.
 2. برای انتقال‌های استاندارد و multiplex، **Backhaul** مناسب است.
 3. **Paqet** را فقط در صورت آشنایی با raw socket و عیب‌یابی firewall انتخاب کنید. برای پورت هستهٔ آن از پورت غیرمتعارف و اختصاصی مثل `3107` یا `9999` استفاده کنید؛ **80 و 443 پورت هستهٔ Paqet نباشند**.
+4. **GOST v3** جایگزین Raw Packet Paqet نیست؛ به‌عنوان مسیر پشتیبان پایدار، با TLS پیش‌فرض یا WebSocket/KCP/QUIC استفاده کنید.
 
 ## پیش‌نیازها
 

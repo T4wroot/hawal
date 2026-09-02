@@ -21,6 +21,7 @@ LOG_DIR = f"{HAWAL_DIR}/logs"
 HAWAL_CORE_BIN = f"{BIN_DIR}/hawal-core"
 BACKHAUL_BIN = f"{BIN_DIR}/backhaul"
 PAQET_BIN = f"{BIN_DIR}/paqet"
+GOST_BIN = f"{BIN_DIR}/gost"
 AGENT_JSON_PATH = "/etc/hawal/agent.json"
 
 class HawalAgent:
@@ -173,6 +174,38 @@ class HawalAgent:
             print(f"[Agent] ❌ Failed to install Paqet binary: {e}")
             return False
         return os.path.exists(PAQET_BIN)
+
+    def ensure_gost_binary(self):
+        if os.path.isfile(GOST_BIN) and os.access(GOST_BIN, os.X_OK):
+            return True
+        try:
+            import platform, tarfile, io
+            machine = platform.machine().lower()
+            if machine in ("x86_64", "amd64"):
+                arch = "amd64"
+            elif machine in ("aarch64", "arm64"):
+                arch = "arm64"
+            else:
+                raise RuntimeError(f"unsupported CPU architecture: {machine}")
+            version = "3.2.6"
+            url = f"https://github.com/go-gost/gost/releases/download/v{version}/gost_{version}_linux_{arch}.tar.gz"
+            print(f"[Agent] 📥 Installing GOST v{version} ({arch})...")
+            req = urllib.request.Request(url, headers={"User-Agent": "Hawal-Agent"})
+            with urllib.request.urlopen(req, timeout=45) as resp:
+                with tarfile.open(fileobj=io.BytesIO(resp.read()), mode="r:gz") as tar:
+                    member = next((m for m in tar.getmembers() if m.isfile() and os.path.basename(m.name) == "gost"), None)
+                    if not member:
+                        raise RuntimeError("gost binary was not found in release archive")
+                    source = tar.extractfile(member)
+                    with open(f"{GOST_BIN}.download", "wb") as out:
+                        out.write(source.read())
+            os.chmod(f"{GOST_BIN}.download", 0o755)
+            os.replace(f"{GOST_BIN}.download", GOST_BIN)
+            print("[Agent] ✅ GOST binary installed successfully.")
+            return True
+        except Exception as e:
+            print(f"[Agent] ❌ Failed to install GOST binary: {e}")
+            return False
 
     def get_network_info(self):
         iface = ""
@@ -350,6 +383,20 @@ class HawalAgent:
                         [PAQET_BIN, "run", "-c", cfg_path],
                         yaml_content,
                         {"core_type": "paqet", "role": role, "core_port": core_port, "ports": ports}
+                    )
+
+            elif core_type == "gost":
+                if not self.ensure_gost_binary():
+                    continue
+                command = item.get("command", [])
+                if not command:
+                    print(f"[Agent] ❌ GOST {tun_id} not started: empty command.")
+                    continue
+                command_content = json.dumps(command, separators=(",", ":"))
+                if not is_running or self.running_configs.get(tun_id) != command_content:
+                    self.restart_tunnel_process(
+                        tun_id, [GOST_BIN] + command, command_content,
+                        {"core_type": "gost", "role": item.get("role", "client")}
                     )
 
         # Stop removed tunnels

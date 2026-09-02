@@ -1114,12 +1114,13 @@ tbody tr:hover { background: #fafbff; }
 .modal { max-width: 720px; padding: 28px; }
 .modal-header { padding-bottom: 16px; border-bottom: 1px solid #edf0f5; }
 .modal-title { font-size: 20px; letter-spacing: -.4px; }
-.engine-selector-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.engine-selector-grid { grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .engine-card { position: relative; min-height: 126px; padding: 16px; justify-content: flex-start; border: 1px solid #e1e5ef; background: #fff; overflow: hidden; }
 .engine-card::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #b6bfd3; margin-bottom: 4px; }
 .engine-card:nth-child(1)::before { background: #4f46e5; box-shadow: 0 0 0 4px #eef2ff; }
 .engine-card:nth-child(2)::before { background: #0e9f6e; box-shadow: 0 0 0 4px #e9fbf3; }
 .engine-card:nth-child(3)::before { background: #2563eb; box-shadow: 0 0 0 4px #eff6ff; }
+.engine-card:nth-child(4)::before { background: #7c3aed; box-shadow: 0 0 0 4px #f3e8ff; }
 .engine-card:hover { transform: translateY(-2px); border-color: #c7cef8; box-shadow: 0 8px 18px rgba(37, 46, 88, .07); }
 .engine-card.active { background: #f7f8ff; border-color: #6d77e9; box-shadow: inset 0 0 0 1px #6d77e9; }
 .engine-title { color: #27314a !important; font-size: 14px; }
@@ -1127,6 +1128,7 @@ tbody tr:hover { background: #fafbff; }
 .engine-meta { align-self: flex-start; margin-top: auto; border-radius: 999px; padding: 3px 7px; color: #5b63ca; background: #edf0ff; font-size: 10px; font-weight: 700; }
 .engine-card:nth-child(2) .engine-meta { color: #07845b; background: #e9faf2; }
 .engine-card:nth-child(3) .engine-meta { color: #2860c7; background: #eff5ff; }
+.engine-card:nth-child(4) .engine-meta { color: #6d28d9; background: #f3e8ff; }
 
 @media (max-width: 620px) {
   .cf-hero-section { padding: 25px 20px; }

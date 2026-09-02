@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563eb.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ed?logo=docker&logoColor=white)](docker-compose.yml)
-[![Cores](https://img.shields.io/badge/Cores-Hawal%20%7C%20Backhaul%20%7C%20Paqet-0f766e)](#tunnel-cores)
+[![Cores](https://img.shields.io/badge/Cores-Hawal%20%7C%20Backhaul%20%7C%20Paqet%20%7C%20GOST-0f766e)](#tunnel-cores)
 
 **Hawal** (هه‌واڵ, Kurdish for “friend” or “companion”) keeps tunnel configuration in one panel and synchronizes it to lightweight agents on your servers.
 
@@ -17,7 +17,7 @@
 
 - Web-based creation and editing of multi-port tunnels
 - Iran and global node enrollment using panel-generated install commands
-- Three selectable cores: **Hawal Stealth Core**, **Backhaul**, and **Paqet**
+- Four selectable cores: **Hawal Stealth Core**, **Backhaul**, **Paqet**, and **GOST v3**
 - Live node health, CPU/RAM, ping, packet-loss, and tunnel status
 - Paqet wire-traffic accounting from destination-server raw-table counters
 - Systemd services for the panel and agents; Docker Compose for the panel
@@ -46,8 +46,11 @@
 | ⚡ **Hawal Stealth Core** | Simple default deployments | `stealth` | Hawal’s built-in core with padding and `nodelay` |
 | 🚀 **Backhaul** | Standard multiplexed tunnels | `ws`, `tcp`, `tcpmux`, `tls` | Keep the core port separate from forwarded ports |
 | 🛡️ **Paqet** | Raw-packet/KCP paths | `kcp` | Needs root, a usable NIC, and firewall setup; intended for advanced use |
+| 👻 **GOST v3** | Encrypted fallback / multi-transport | `tls`, `ws`, `kcp`, `quic` | Relay-based TCP forwarding; GOST is fetched automatically by the agent |
 
 Start with Hawal Stealth Core. Use Backhaul when its standard transports fit your network. Choose Paqet only if you understand raw sockets and firewall troubleshooting.
+
+GOST v3 is a useful fallback next to Paqet, rather than a raw-packet replacement. The Hawal integration uses GOST Relay authentication and carries TCP forwarding over TLS by default; WebSocket, KCP, and QUIC are selectable alternatives.
 
 > Do not use ports 80 or 443 as a **Paqet core port**. Use a dedicated non-standard port such as `3107` or `9999`.
 

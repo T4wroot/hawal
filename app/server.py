@@ -17,6 +17,7 @@ from app.db import (
     set_tunnel_absolute_traffic
 )
 from app.backhaul import validate_tunnel_ports, generate_server_config, generate_client_config
+from app.gost_engine import generate_gost_server_command, generate_gost_client_command
 from app.ping_tool import run_ping, run_tcp_ping
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -292,6 +293,8 @@ class HTTPServer:
                 default_transport = "kcp"
             elif core_type == "hawal":
                 default_transport = "stealth"
+            elif core_type == "gost":
+                default_transport = "tls"
             else:
                 default_transport = "ws"
             transport = data.get("transport", default_transport)
@@ -353,6 +356,8 @@ class HTTPServer:
                 default_transport = "kcp"
             elif core_type == "hawal":
                 default_transport = "stealth"
+            elif core_type == "gost":
+                default_transport = "tls"
             else:
                 default_transport = "ws"
             transport = data.get("transport", default_transport)
@@ -580,6 +585,21 @@ class HTTPServer:
                             "core_port": t.get("core_port", 8888),
                             "ports": t.get("ports", []),
                             "yaml": generate_paqet_client_config(t, paqet_server_ip)
+                        })
+                    continue
+
+                if core_type == "gost":
+                    if t["client_node_id"] == node["id"]:
+                        node_configs.append({
+                            "tunnel_id": t["id"], "core_type": "gost", "role": "server",
+                            "command": generate_gost_server_command(t),
+                        })
+                    elif t["server_node_id"] == node["id"]:
+                        gost_server = get_node(t["client_node_id"])
+                        gost_server_ip = gost_server["ip"] if gost_server else "127.0.0.1"
+                        node_configs.append({
+                            "tunnel_id": t["id"], "core_type": "gost", "role": "client",
+                            "command": generate_gost_client_command(t, gost_server_ip),
                         })
                     continue
 
