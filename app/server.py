@@ -690,8 +690,10 @@ class HTTPServer:
         token = query.get("token", [""])[0]
         role = query.get("role", ["kharej"])[0]
         name = query.get("name", ["Auto Node"])[0]
+        from app.config import load_settings
         host_header = headers.get("host", f"127.0.0.1:{self.port}")
-        panel_url = f"http://{host_header}"
+        configured_url = load_settings().get("public_panel_url", "").strip().rstrip("/")
+        panel_url = configured_url or f"http://{host_header}"
 
         script = f"""#!/usr/bin/env bash
 set -e

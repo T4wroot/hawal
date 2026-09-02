@@ -17,6 +17,7 @@ DEFAULT_SETTINGS = {
     "app_name": "Hawal Tunnel (هه‌واڵ)",
     "panel_port": 9090,
     "panel_host": "0.0.0.0",
+    "public_panel_url": "",
     "default_transport": "ws",
     "default_mux_con": 8,
     "default_keepalive": 75,

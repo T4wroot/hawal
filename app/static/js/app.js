@@ -289,6 +289,8 @@ async function fetchData() {
     STATE.tunnels = tunnelsRes.tunnels || [];
     STATE.pings = pingsRes.history || [];
     STATE.settings = settingsRes.settings || {};
+    const publicPanelUrl = document.getElementById('setting-public-panel-url');
+    if (publicPanelUrl) publicPanelUrl.value = STATE.settings.public_panel_url || '';
 
     renderDashboard();
     renderNodes();
@@ -1009,6 +1011,7 @@ async function handleSaveSettings(e) {
   const defaultTransport = document.getElementById('setting-default-transport').value;
   const defaultMux = parseInt(document.getElementById('setting-default-mux').value);
   const mtuClamp = parseInt(document.getElementById('setting-mtu-clamp').value);
+  const publicPanelUrl = document.getElementById('setting-public-panel-url').value.trim().replace(/\/$/, '');
 
   try {
     const res = await fetch('/api/settings', {
@@ -1018,7 +1021,8 @@ async function handleSaveSettings(e) {
         panel_port: panelPort,
         default_transport: defaultTransport,
         default_mux: defaultMux,
-        mtu_clamp: mtuClamp
+        mtu_clamp: mtuClamp,
+        public_panel_url: publicPanelUrl
       })
     });
     if (res.ok) {
