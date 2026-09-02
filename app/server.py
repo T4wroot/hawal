@@ -15,7 +15,7 @@ from app.db import (
     update_node_heartbeat, list_tunnels, get_tunnel, update_tunnel, save_tunnel,
     set_tunnel_status, delete_tunnel, record_ping, get_latest_pings,
     request_tunnel_restart, request_all_agents_restart,
-    save_log_snapshots, get_log_snapshots,
+    save_log_snapshots, get_log_snapshots, delete_log_snapshots,
     set_tunnel_absolute_traffic
 )
 from app.backhaul import validate_tunnel_ports, generate_server_config, generate_client_config
@@ -241,6 +241,13 @@ class HTTPServer:
             node_id = query.get("node_id", [""])[0]
             source = query.get("source", [""])[0]
             self.send_json(writer, {"logs": get_log_snapshots(node_id or None, source or None)})
+            return
+
+        if method == "DELETE" and path == "/api/logs":
+            node_id = query.get("node_id", [""])[0]
+            source = query.get("source", [""])[0]
+            deleted = delete_log_snapshots(node_id or None, source or None)
+            self.send_json(writer, {"success": True, "deleted": deleted})
             return
 
         if method == "POST" and path == "/api/agent/logs":

@@ -262,7 +262,7 @@
       <!-- TAB: SETTINGS -->
       <div id="tab-logs" class="tab-content" style="display: none;">
         <div class="cf-body-container"><div class="cf-card">
-          <div class="cf-card-header"><div class="cf-card-title"><span>لاگ نودها و تانل‌ها</span></div><button class="btn btn-secondary btn-sm" onclick="loadLogs()">↻ بروزرسانی</button></div>
+          <div class="cf-card-header"><div class="cf-card-title"><span>لاگ نودها و تانل‌ها</span></div><div style="display:flex;gap:8px;"><button class="btn btn-secondary btn-sm" onclick="copyVisibleLogs()">کپی</button><button class="btn btn-danger btn-sm" onclick="clearVisibleLogs()">پاک‌سازی</button><button class="btn btn-secondary btn-sm" onclick="loadLogs()">↻ بروزرسانی</button></div></div>
           <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
             <select id="logs-node" class="form-control" onchange="loadLogs()" style="max-width:260px;"></select>
             <select id="logs-source" class="form-control" onchange="loadLogs()" style="max-width:320px;"><option value="">همهٔ لاگ‌ها</option><option value="agent">لاگ Agent</option></select>
@@ -549,6 +549,6 @@
   <!-- FLOATING TOASTS -->
   <div id="toast-container"></div>
 
-  <script src="/static/js/app.js?v=20260902-logs"></script>
+  <script src="/static/js/app.js?v=20260902-logactions"></script>
 </body>
 </html>

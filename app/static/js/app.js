@@ -613,6 +613,29 @@ async function loadLogs() {
   } catch (e) { output.textContent = `خطا در دریافت لاگ: ${e.message}`; }
 }
 
+async function copyVisibleLogs() {
+  const content = document.getElementById('logs-output')?.textContent || '';
+  if (!content || content.startsWith('در حال دریافت')) return showToast('لاگی برای کپی وجود ندارد.', 'info');
+  try {
+    await navigator.clipboard.writeText(content);
+    showToast('لاگ کپی شد.', 'success');
+  } catch (e) { showToast('مرورگر اجازهٔ کپی نداد.', 'error'); }
+}
+
+async function clearVisibleLogs() {
+  const node = document.getElementById('logs-node')?.value || '';
+  const source = document.getElementById('logs-source')?.value || '';
+  const scope = node || source ? 'لاگ انتخاب‌شده' : 'همهٔ snapshotهای لاگ';
+  if (!confirm(`${scope} از پنل پاک می‌شود. فایل لاگ سرورها حذف نمی‌شود. ادامه می‌دهید؟`)) return;
+  try {
+    const params = new URLSearchParams(); if (node) params.set('node_id', node); if (source) params.set('source', source);
+    const data = await fetch(`/api/logs?${params}`, { method: 'DELETE' }).then(r => r.json());
+    if (!data.success) throw new Error('درخواست ناموفق بود');
+    showToast(`${data.deleted} snapshot پاک شد؛ گزارش جدید agent دوباره ظاهر می‌شود.`, 'success');
+    loadLogs();
+  } catch (e) { showToast(`پاک‌سازی ناموفق بود: ${e.message}`, 'error'); }
+}
+
 function renderTunnels() {
   const tbody = document.getElementById('tunnels-table-body');
   if (!tbody) return;

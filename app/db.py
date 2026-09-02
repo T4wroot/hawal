@@ -308,6 +308,23 @@ def get_log_snapshots(node_id=None, source=None):
     with get_db() as conn:
         return [dict(row) for row in conn.execute(sql, values).fetchall()]
 
+def delete_log_snapshots(node_id=None, source=None):
+    sql = "DELETE FROM log_snapshots"
+    values = []
+    where = []
+    if node_id:
+        where.append("node_id = ?")
+        values.append(node_id)
+    if source:
+        where.append("source = ?")
+        values.append(source)
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    with get_db() as conn:
+        cursor = conn.execute(sql, values)
+        conn.commit()
+        return cursor.rowcount
+
 def update_tunnel_traffic(tunnel_id, bytes_in, bytes_out):
     with get_db() as conn:
         conn.execute("""
