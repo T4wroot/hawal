@@ -15,6 +15,7 @@ from app.db import (
     update_node_heartbeat, list_tunnels, get_tunnel, update_tunnel, save_tunnel,
     set_tunnel_status, delete_tunnel, record_ping, get_latest_pings,
     request_tunnel_restart, request_all_agents_restart,
+    save_log_snapshots, get_log_snapshots,
     set_tunnel_absolute_traffic
 )
 from app.backhaul import validate_tunnel_ports, generate_server_config, generate_client_config
@@ -234,6 +235,28 @@ class HTTPServer:
         if method == "GET" and path == "/api/nodes":
             nodes = list_nodes()
             self.send_json(writer, {"nodes": nodes})
+            return
+
+        if method == "GET" and path == "/api/logs":
+            node_id = query.get("node_id", [""])[0]
+            source = query.get("source", [""])[0]
+            self.send_json(writer, {"logs": get_log_snapshots(node_id or None, source or None)})
+            return
+
+        if method == "POST" and path == "/api/agent/logs":
+            auth_header = headers.get("authorization", "") or headers.get("Authorization", "")
+            token = auth_header.replace("Bearer ", "").strip()
+            node = get_node_by_token(token)
+            if not node:
+                self.send_json(writer, {"error": "unauthorized"}, status=401)
+                return
+            payload = json.loads(body.decode("utf-8"))
+            snapshots = payload.get("snapshots", {})
+            if not isinstance(snapshots, dict):
+                self.send_json(writer, {"error": "invalid snapshots"}, status=400)
+                return
+            save_log_snapshots(node["id"], snapshots)
+            self.send_json(writer, {"success": True})
             return
 
         if method == "POST" and path == "/api/nodes":

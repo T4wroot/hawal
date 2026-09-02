@@ -35,6 +35,7 @@ class HawalAgent:
         self.running_configs = {}   # {tunnel_id: hash}
         self.running_metadata = {}  # {tunnel_id: runtime details used for cleanup}
         self.shutdown_requested = False
+        self.last_log_report = 0
         self.agent_restart_nonce = self._load_agent_restart_nonce()
 
         os.makedirs(BIN_DIR, exist_ok=True)
@@ -343,6 +344,29 @@ class HawalAgent:
         except Exception as e:
             pass
 
+    def report_logs(self):
+        if time.time() - self.last_log_report < 12:
+            return
+        snapshots = {}
+        try:
+            result = subprocess.run(["journalctl", "-u", "hawal-agent", "-n", "80", "--no-pager"], capture_output=True, text=True, timeout=4)
+            snapshots["agent"] = result.stdout[-12000:]
+            for tun_id in self.running_processes:
+                path = f"{LOG_DIR}/{tun_id}.log"
+                if os.path.exists(path):
+                    with open(path, "rb") as f:
+                        f.seek(max(0, os.path.getsize(path) - 12000))
+                        snapshots[f"tunnel:{tun_id}"] = f.read().decode("utf-8", errors="replace")
+            req = urllib.request.Request(
+                f"{self.panel_url}/api/agent/logs",
+                data=json.dumps({"snapshots": snapshots}).encode("utf-8"),
+                headers={"Content-Type": "application/json", "Authorization": f"Bearer {self.token}"}, method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=5):
+                self.last_log_report = time.time()
+        except Exception:
+            pass
+
     def apply_configs(self, configs):
         active_ids = set()
 
@@ -562,6 +586,7 @@ class HawalAgent:
             while not self.shutdown_requested:
                 self.send_heartbeat()
                 self.sync_tunnels()
+                self.report_logs()
                 self.track_and_report_traffic()
                 time.sleep(4)
         finally:

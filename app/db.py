@@ -72,6 +72,15 @@ def init_db():
             created_at REAL NOT NULL
         )
         """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS log_snapshots (
+            node_id TEXT NOT NULL,
+            source TEXT NOT NULL,
+            content TEXT NOT NULL,
+            updated_at REAL NOT NULL,
+            PRIMARY KEY (node_id, source)
+        )
+        """)
         
         # Automatic migrations for existing databases
         try:
@@ -271,6 +280,33 @@ def request_all_agents_restart():
         cursor = conn.execute("UPDATE nodes SET agent_restart_nonce = agent_restart_nonce + 1")
         conn.commit()
         return cursor.rowcount
+
+def save_log_snapshots(node_id, snapshots):
+    now = time.time()
+    with get_db() as conn:
+        for source, content in snapshots.items():
+            conn.execute("""
+                INSERT INTO log_snapshots (node_id, source, content, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(node_id, source) DO UPDATE SET content=excluded.content, updated_at=excluded.updated_at
+            """, (node_id, source, str(content)[-24000:], now))
+        conn.commit()
+
+def get_log_snapshots(node_id=None, source=None):
+    sql = "SELECT * FROM log_snapshots"
+    values = []
+    where = []
+    if node_id:
+        where.append("node_id = ?")
+        values.append(node_id)
+    if source:
+        where.append("source = ?")
+        values.append(source)
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY updated_at DESC"
+    with get_db() as conn:
+        return [dict(row) for row in conn.execute(sql, values).fetchall()]
 
 def update_tunnel_traffic(tunnel_id, bytes_in, bytes_out):
     with get_db() as conn:

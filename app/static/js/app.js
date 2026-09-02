@@ -237,6 +237,7 @@ function switchTab(tabId) {
     'nodes': 'نودها',
     'tunnels': 'تانل‌ها',
     'ping': 'آزمایش شبکه',
+    'logs': 'لاگ‌ها',
     'settings': 'تنظیمات'
   };
   const breadcrumbs = document.getElementById('cf-breadcrumbs');
@@ -581,6 +582,35 @@ function renderNodes() {
     `;
     tbody.appendChild(tr);
   });
+}
+
+function populateLogSelectors() {
+  const nodeSelect = document.getElementById('logs-node');
+  const sourceSelect = document.getElementById('logs-source');
+  if (!nodeSelect || !sourceSelect) return;
+  const selectedNode = nodeSelect.value;
+  const selectedSource = sourceSelect.value;
+  nodeSelect.innerHTML = '<option value="">همهٔ نودها</option>' + STATE.nodes.map(n => `<option value="${n.id}">${n.flag || '🌐'} ${n.name}</option>`).join('');
+  sourceSelect.innerHTML = '<option value="">همهٔ لاگ‌ها</option><option value="agent">لاگ Agent</option>' + STATE.tunnels.map(t => `<option value="tunnel:${t.id}">تانل: ${t.name}</option>`).join('');
+  nodeSelect.value = selectedNode;
+  sourceSelect.value = selectedSource;
+}
+
+async function loadLogs() {
+  populateLogSelectors();
+  const node = document.getElementById('logs-node')?.value || '';
+  const source = document.getElementById('logs-source')?.value || '';
+  const output = document.getElementById('logs-output');
+  const meta = document.getElementById('logs-meta');
+  if (!output) return;
+  output.textContent = 'در حال دریافت لاگ…';
+  try {
+    const params = new URLSearchParams(); if (node) params.set('node_id', node); if (source) params.set('source', source);
+    const data = await fetch(`/api/logs?${params}`).then(r => r.json());
+    const nodes = Object.fromEntries(STATE.nodes.map(n => [n.id, n]));
+    output.textContent = (data.logs || []).map(l => `===== ${(nodes[l.node_id]?.name || l.node_id)} • ${l.source} =====\n${l.content}`).join('\n\n') || 'هنوز لاگی از agent دریافت نشده؛ حداکثر ۱۲ ثانیه صبر و دوباره بروزرسانی کن.';
+    if (meta) meta.textContent = `${(data.logs || []).length} منبع لاگ`;
+  } catch (e) { output.textContent = `خطا در دریافت لاگ: ${e.message}`; }
 }
 
 function renderTunnels() {

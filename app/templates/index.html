@@ -49,6 +49,9 @@
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
           <span>آزمایش شبکه</span>
         </div>
+        <div class="cf-nav-item" id="nav-logs" onclick="switchTab('logs'); loadLogs();">
+          <span>لاگ‌ها</span>
+        </div>
       </div>
     </aside>
 
@@ -254,6 +257,19 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- TAB: SETTINGS -->
+      <div id="tab-logs" class="tab-content" style="display: none;">
+        <div class="cf-body-container"><div class="cf-card">
+          <div class="cf-card-header"><div class="cf-card-title"><span>لاگ نودها و تانل‌ها</span></div><button class="btn btn-secondary btn-sm" onclick="loadLogs()">↻ بروزرسانی</button></div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+            <select id="logs-node" class="form-control" onchange="loadLogs()" style="max-width:260px;"></select>
+            <select id="logs-source" class="form-control" onchange="loadLogs()" style="max-width:320px;"><option value="">همهٔ لاگ‌ها</option><option value="agent">لاگ Agent</option></select>
+          </div>
+          <div id="logs-meta" style="font-size:12px;color:var(--text-muted);margin-bottom:8px;"></div>
+          <pre id="logs-output" class="cmd-box" style="min-height:420px;max-height:65vh;overflow:auto;white-space:pre-wrap;direction:ltr;text-align:left;"></pre>
+        </div></div>
       </div>
 
       <!-- TAB: SETTINGS -->
