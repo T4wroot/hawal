@@ -50,7 +50,7 @@
 
 Start with Hawal Stealth Core. Use Backhaul when its standard transports fit your network. Choose Paqet only if you understand raw sockets and firewall troubleshooting.
 
-GOST v3 is a useful fallback next to Paqet, rather than a raw-packet replacement. The Hawal integration uses GOST Relay authentication and carries TCP forwarding over TLS by default; WebSocket, KCP, and QUIC are selectable alternatives.
+GOST v3 is a useful fallback next to Paqet, rather than a raw-packet replacement. The Hawal integration uses GOST Relay authentication and carries TCP **and UDP** forwarding over TLS by default; WebSocket, KCP, and QUIC are selectable alternatives. This includes QUIC applications such as Hysteria2.
 
 > Do not use ports 80 or 443 as a **Paqet core port**. Use a dedicated non-standard port such as `3107` or `9999`.
 

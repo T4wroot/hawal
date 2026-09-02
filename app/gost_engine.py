@@ -33,7 +33,13 @@ def generate_gost_server_command(tunnel):
 
 
 def generate_gost_client_command(tunnel, server_ip):
-    """Expose each Iran entry port and carry it to its foreign-side target."""
+    """Expose each entry port for both TCP and UDP through GOST Relay.
+
+    A single Hawal port mapping is protocol-agnostic.  Creating only a TCP
+    listener breaks QUIC applications such as Hysteria2, even though Relay can
+    carry UDP.  GOST keeps the two listeners independent, so an unused UDP
+    listener has no effect on a TCP-only target.
+    """
     args = []
     for rule in tunnel.get("ports", []):
         try:
@@ -42,7 +48,10 @@ def generate_gost_client_command(tunnel, server_ip):
             target = target.strip()
             if not target or not 1 <= listen_port <= 65535:
                 continue
-            args.extend(["-L", f"tcp://:{listen_port}/{target}"])
+            args.extend([
+                "-L", f"tcp://:{listen_port}/{target}",
+                "-L", f"udp://:{listen_port}/{target}",
+            ])
         except (TypeError, ValueError):
             continue
     args.extend(["-F", relay_url(tunnel, server_ip)])
