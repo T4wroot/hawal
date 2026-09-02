@@ -32,6 +32,12 @@ CONNECTED_WS_CLIENTS = set()
 # Connected Agent Sockets for real-time dispatch
 CONNECTED_AGENTS = {} # node_id -> writer
 
+# A public control-panel port is regularly hit by incomplete probes.  Without
+# a deadline, every such peer keeps a socket open indefinitely and can exhaust
+# the modest default file-descriptor limit of a VPS.
+HTTP_READ_TIMEOUT = 15
+MAX_HTTP_BODY_BYTES = 1024 * 1024
+
 def make_ws_handshake_response(sec_key):
     guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
     accept_val = base64.b64encode(hashlib.sha1((sec_key + guid).encode('utf-8')).digest()).decode('utf-8')
@@ -158,7 +164,7 @@ class HTTPServer:
 
     async def handle_client(self, reader, writer):
         try:
-            req_line = await reader.readline()
+            req_line = await asyncio.wait_for(reader.readline(), timeout=HTTP_READ_TIMEOUT)
             if not req_line:
                 writer.close()
                 return
@@ -171,7 +177,7 @@ class HTTPServer:
             method, path = req_parts[0], req_parts[1]
             headers = {}
             while True:
-                line = await reader.readline()
+                line = await asyncio.wait_for(reader.readline(), timeout=HTTP_READ_TIMEOUT)
                 if not line or line == b"\r\n":
                     break
                 header_line = line.decode('utf-8', errors='ignore').strip()
@@ -196,8 +202,13 @@ class HTTPServer:
             # Read Body if POST/PUT
             body = b""
             content_length = int(headers.get("content-length", 0))
+            if content_length < 0 or content_length > MAX_HTTP_BODY_BYTES:
+                self.send_json(writer, {"error": "request body too large"}, status=413)
+                return
             if content_length > 0:
-                body = await reader.readexactly(content_length)
+                body = await asyncio.wait_for(
+                    reader.readexactly(content_length), timeout=HTTP_READ_TIMEOUT
+                )
 
             # Route HTTP Requests
             await self.route_request(method, raw_path, query, headers, body, writer)
